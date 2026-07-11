@@ -11,10 +11,10 @@ mkdir -p "$TARGET_DIR/docs"
 cp -f "$BLUEPRINT_DIR/WORKFLOW.md" "$TARGET_DIR/docs/"
 echo "WORKFLOW.md atualizado em docs/"
 
-# Garante a existencia da pasta oculta .agents e copia/sobrescreve as definicoes dos agentes
-mkdir -p "$TARGET_DIR/.agents"
-cp -rf "$BLUEPRINT_DIR/skills/"* "$TARGET_DIR/.agents/"
-echo "Skills locais atualizadas em .agents/"
+# Garante a existencia da pasta oculta .agents/skills e copia/sobrescreve as definicoes dos agentes
+mkdir -p "$TARGET_DIR/.agents/skills"
+cp -rf "$BLUEPRINT_DIR/skills/"* "$TARGET_DIR/.agents/skills/"
+echo "Skills locais atualizadas em .agents/skills/"
 
 # Cria o template base do AGENTS.md apenas se ele nao existir (nunca sobrescreve)
 if [ ! -f "$TARGET_DIR/AGENTS.md" ]; then
@@ -24,4 +24,4 @@ else
     echo "AGENTS.md ja existente na raiz. Ignorando copia para preservar dados locais."
 fi
 
-echo "Setup concluido. Ajuste o AGENTS.md e configure as skills locais no editor Zed apontando para .agents/"
+echo "Setup concluido. Ajuste o AGENTS.md e configure as skills locais no editor Zed apontando para .agents/skills/"
