@@ -48,6 +48,7 @@ git clone [https://github.com/seu-usuario/zed-agents-blueprint.git](https://gith
 Navegue até a pasta raiz do seu novo projeto de software e execute o script apontando para o caminho do blueprint clonado:
 ```bash
 cd ~/caminho/do/seu-novo-projeto
+chmod +x ~/zed-agents-blueprint/install.sh
 ~/zed-agents-blueprint/install.sh
 ```
 
