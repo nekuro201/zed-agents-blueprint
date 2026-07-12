@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DevPass ➔ Zed Editor Configurator</title>
+    <title>LLM Gateway ➔ Zed Editor Configurator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -47,11 +47,11 @@
         <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-3">
                 <div class="bg-emerald-600 text-zinc-950 p-2 rounded-lg font-bold text-lg">
-                    DP
+                    LG
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold tracking-tight text-emerald-500">DevPass ➔ Zed Config</h1>
-                    <p class="text-xs text-zinc-400">Gere e gerencie múltiplos modelos de IA para o seu settings.json do Zed Editor</p>
+                    <h1 class="text-xl font-bold tracking-tight text-emerald-500">LLM Gateway ➔ Zed Config</h1>
+                    <p class="text-xs text-zinc-400">Gere blocos de modelos no padrão Anthropic para o seu settings.json do Zed Editor</p>
                 </div>
             </div>
 
@@ -86,7 +86,7 @@
                     <button onclick="copyFullBlock()" id="btnCopyBlock" disabled class="w-full bg-emerald-600 disabled:bg-zinc-800 disabled:text-zinc-600 hover:bg-emerald-500 text-zinc-950 font-bold text-xs py-2.5 rounded-lg transition flex items-center justify-center gap-2">
                         📋 Copiar Bloco Completo
                     </button>
-                    <button onclick="clearCart()" class="text-[11px] text-zinc-500 hover:text-red-400 transition text-center underline">
+                    <button onclick="clearCart()" class="text-xs text-zinc-500 hover:text-red-400 transition text-center underline">
                         Limpar bloco selecionado
                     </button>
                 </div>
@@ -134,7 +134,7 @@
             <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center">
                 <div class="relative w-full">
                     <input type="text" id="searchBar" oninput="filterAndRender()" placeholder="Filtrar por nome do modelo ou provedor..."
-                        class="bg-zinc-950 border border-zinc-855 rounded-lg pl-10 pr-4 py-2 w-full text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-200">
+                        class="bg-zinc-950 border border-zinc-850 rounded-lg pl-10 pr-4 py-2 w-full text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-200">
                     <div class="absolute left-3 top-2.5 text-zinc-500">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                     </div>
@@ -169,7 +169,7 @@
 
             <div class="border-b border-zinc-800 p-5 flex justify-between items-center bg-zinc-900">
                 <div>
-                    <h3 class="font-bold text-lg text-zinc-100">Configurar Modelo para o Bloco</h3>
+                    <h3 class="font-bold text-lg text-zinc-100">Configurar Modelo (Padrão Anthropic)</h3>
                     <p class="text-xs text-emerald-400 font-mono" id="modalModelId">---</p>
                 </div>
                 <button onclick="closeModal()" class="text-zinc-400 hover:text-zinc-100 transition">
@@ -178,53 +178,40 @@
             </div>
 
             <div class="p-6 overflow-y-auto space-y-4 flex-1">
-                <div class="grid grid-cols-3 gap-3">
+                <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Max Tokens</label>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Max Tokens (Contexto)</label>
                         <input type="number" id="inputMaxTokens" oninput="updateConfigPreview()"
                             class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-200">
                     </div>
                     <div>
-                        <label class="block text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Max Output</label>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Max Output Tokens</label>
                         <input type="number" id="inputMaxOutput" oninput="updateConfigPreview()"
-                            class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-200">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Max Completion</label>
-                        <input type="number" id="inputMaxCompletion" oninput="updateConfigPreview()"
                             class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-200">
                     </div>
                 </div>
 
                 <div>
-                    <span class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Capacidades do Modelo</span>
-                    <div class="grid grid-cols-2 gap-3">
+                    <span class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Capacidades (Capabilities)</span>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <label class="flex items-center gap-2 bg-zinc-950/50 p-2.5 rounded-lg border border-zinc-800/80 cursor-pointer">
                             <input type="checkbox" id="chkTools" onchange="updateConfigPreview()" class="rounded border-zinc-700 text-emerald-600 focus:ring-emerald-500 bg-zinc-900">
-                            <span class="text-xs text-zinc-300">Suporta Tools (MCP)</span>
+                            <span class="text-xs text-zinc-300">Tools</span>
                         </label>
                         <label class="flex items-center gap-2 bg-zinc-950/50 p-2.5 rounded-lg border border-zinc-800/80 cursor-pointer">
                             <input type="checkbox" id="chkImages" onchange="updateConfigPreview()" class="rounded border-zinc-700 text-emerald-600 focus:ring-emerald-500 bg-zinc-900">
-                            <span class="text-xs text-zinc-300">Suporta Imagens (Visão)</span>
-                        </label>
-                        <label class="flex items-center gap-2 bg-zinc-950/50 p-2.5 rounded-lg border border-zinc-800/80 cursor-pointer">
-                            <input type="checkbox" id="chkParallel" onchange="updateConfigPreview()" class="rounded border-zinc-700 text-emerald-600 focus:ring-emerald-500 bg-zinc-900">
-                            <span class="text-xs text-zinc-300">Parallel Tool Calls</span>
+                            <span class="text-xs text-zinc-300">Images (Visão)</span>
                         </label>
                         <label class="flex items-center gap-2 bg-zinc-950/50 p-2.5 rounded-lg border border-zinc-800/80 cursor-pointer">
                             <input type="checkbox" id="chkCache" onchange="updateConfigPreview()" class="rounded border-zinc-700 text-emerald-600 focus:ring-emerald-500 bg-zinc-900">
                             <span class="text-xs text-zinc-300">Prompt Caching</span>
-                        </label>
-                        <label class="flex items-center gap-2 bg-zinc-950/50 p-2.5 rounded-lg border border-zinc-800/80 cursor-pointer col-span-2">
-                            <input type="checkbox" id="chkInterleaved" onchange="updateConfigPreview()" class="rounded border-zinc-700 text-emerald-600 focus:ring-emerald-500 bg-zinc-900">
-                            <span class="text-xs text-zinc-300">Suporta Raciocínio (Interleaved CoT/Thinking)</span>
                         </label>
                     </div>
                 </div>
 
                 <div>
                     <span class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Visualização do Snippet</span>
-                    <pre class="bg-zinc-950 border border-zinc-850 rounded-lg p-3 text-xs font-mono text-emerald-400 overflow-x-auto max-h-36" id="jsonPreview"></pre>
+                    <pre class="bg-zinc-950 border border-zinc-850 rounded-lg p-3 text-xs font-mono text-emerald-400 overflow-x-auto max-h-40" id="jsonPreview"></pre>
                 </div>
             </div>
 
@@ -248,8 +235,8 @@
                 </button>
             </div>
             <div class="p-6 space-y-3">
-                <p class="text-xs text-zinc-400">Cole seu bloco atual `DevPass` para ler, modificar ou remover os modelos ativos no seu editor:</p>
-                <textarea id="importArea" placeholder='{ "DevPass": { "api_url": "https://api.llmgateway.io/v1", "available_models": [...] } }'
+                <p class="text-xs text-zinc-400">Cole seu bloco atual `"LLM Gateway"` para ler ou modificar os modelos ativos:</p>
+                <textarea id="importArea" placeholder='{ "LLM Gateway": { "api_url": "https://api.llmgateway.io", "available_models": [...] } }'
                     class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-xs font-mono h-48 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-300 resize-none"></textarea>
             </div>
             <div class="border-t border-zinc-800 p-5 bg-zinc-900/50 flex gap-3">
@@ -274,16 +261,14 @@
         let currentEditingModel = null;
 
         window.onload = function() {
-            // Carrega cache de modelos
-            const cachedModels = localStorage.getItem('devpass_models_cache');
+            const cachedModels = localStorage.getItem('llmgateway_anthropic_models_cache');
             if (cachedModels) {
                 allModels = JSON.parse(cachedModels);
                 document.getElementById('dbSource').innerText = "LocalStorage (Cache)";
                 document.getElementById('modelCount').innerText = allModels.length;
             }
 
-            // Carrega estado salvo do carrinho
-            const cachedCart = localStorage.getItem('devpass_cart_cache');
+            const cachedCart = localStorage.getItem('llmgateway_anthropic_cart_cache');
             if (cachedCart) {
                 cartModels = JSON.parse(cachedCart);
             }
@@ -293,7 +278,7 @@
         };
 
         function clearCache() {
-            localStorage.removeItem('devpass_models_cache');
+            localStorage.removeItem('llmgateway_anthropic_models_cache');
             allModels = [];
             document.getElementById('dbSource').innerText = "Vazio";
             document.getElementById('modelCount').innerText = "0";
@@ -327,7 +312,7 @@
         function loadManualJson() {
             const jsonText = document.getElementById('manualJson').value.trim();
             if (!jsonText) {
-                alert("Por favor, cole o JSON de retorno da API do gateway!");
+                alert("Por favor, cole o JSON de retorno da API!");
                 return;
             }
             try {
@@ -356,33 +341,27 @@
                 const provider = id.includes('/') ? id.split('/')[0] : "custom";
                 const contextWindow = m.context_length || m.context_window || m.max_tokens || 128000;
                 const maxOutput = m.max_output_tokens || m.max_output || 4096;
-                const maxCompletion = m.max_completion_tokens || maxOutput;
 
                 const lowerId = id.toLowerCase();
                 const isVision = lowerId.includes('vision') || lowerId.includes('vl') || lowerId.includes('-v') || lowerId.includes('sonnet') || lowerId.includes('gpt-4o');
-                const isReasoner = lowerId.includes('reasoner') || lowerId.includes('r1') || lowerId.includes('o1') || lowerId.includes('o3');
                 const hasTools = !lowerId.includes('instruct') || lowerId.includes('code') || lowerId.includes('deepseek');
+                const canCache = provider === 'deepseek' || provider === 'anthropic' || lowerId.includes('sonnet');
 
                 return {
                     id: id,
                     provider: provider,
                     max_tokens: contextWindow,
                     max_output_tokens: maxOutput,
-                    max_completion_tokens: maxCompletion,
                     capabilities: {
                         tools: hasTools,
                         images: isVision,
-                        parallel_tool_calls: hasTools && (provider === 'openai' || provider === 'anthropic'),
-                        prompt_cache_key: provider === 'deepseek' || provider === 'anthropic',
-                        chat_completions: true,
-                        interleaved_reasoning: isReasoner,
-                        max_tokens_parameter: false
+                        prompt_caching: canCache
                     }
                 };
             });
 
             allModels.sort((a, b) => a.id.localeCompare(b.id));
-            localStorage.setItem('devpass_models_cache', JSON.stringify(allModels));
+            localStorage.setItem('llmgateway_anthropic_models_cache', JSON.stringify(allModels));
             document.getElementById('dbSource').innerText = source;
             document.getElementById('modelCount').innerText = allModels.length;
 
@@ -406,9 +385,9 @@
             let html = "";
             filtered.forEach(m => {
                 const inCart = cartModels.some(item => item.name === m.id);
-                const toolIcon = m.capabilities.tools ? `<span class="text-emerald-400 bg-emerald-950/40 border border-emerald-900/60 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono">🛠️ TOOLS</span>` : '';
-                const imageIcon = m.capabilities.images ? `<span class="text-blue-400 bg-blue-950/40 border border-blue-900/60 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono">👁️ VISION</span>` : '';
-                const reasoningIcon = m.capabilities.interleaved_reasoning ? `<span class="text-purple-400 bg-purple-950/40 border border-purple-900/60 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono">🧠 REASONING</span>` : '';
+                const toolIcon = m.capabilities.tools ? `<span class="text-emerald-400 bg-emerald-950/40 border border-emerald-900/60 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono">TOOLS</span>` : '';
+                const imageIcon = m.capabilities.images ? `<span class="text-blue-400 bg-blue-950/40 border border-blue-900/60 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono">VISION</span>` : '';
+                const cacheIcon = m.capabilities.prompt_caching ? `<span class="text-purple-400 bg-purple-950/40 border border-purple-900/60 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono">CACHING</span>` : '';
 
                 html += `
                 <tr class="hover:bg-zinc-800/30 transition duration-100 ${inCart ? 'bg-emerald-950/10' : ''}">
@@ -419,8 +398,8 @@
                     <td class="py-3 px-4 text-center text-xs font-mono text-zinc-400">${Number(m.max_tokens).toLocaleString()}</td>
                     <td class="py-3 px-4 text-center">
                         <div class="flex items-center justify-center gap-1.5">
-                            ${toolIcon} ${imageIcon} ${reasoningIcon}
-                            ${(!toolIcon && !imageIcon && !reasoningIcon) ? '<span class="text-zinc-600">-</span>' : ''}
+                            ${toolIcon} ${imageIcon} ${cacheIcon}
+                            ${(!toolIcon && !imageIcon && !cacheIcon) ? '<span class="text-zinc-600">-</span>' : ''}
                         </div>
                     </td>
                     <td class="py-3 px-4 text-right">
@@ -434,14 +413,13 @@
             body.innerHTML = html;
         }
 
-        // Sistema do Carrinho (Gerenciamento do Bloco Customizado)
         function updateCartUI() {
             const listContainer = document.getElementById('cartList');
             const countSpan = document.getElementById('cartCount');
             const btnCopy = document.getElementById('btnCopyBlock');
 
             countSpan.innerText = cartModels.length;
-            localStorage.setItem('devpass_cart_cache', JSON.stringify(cartModels));
+            localStorage.setItem('llmgateway_anthropic_cart_cache', JSON.stringify(cartModels));
 
             if (cartModels.length === 0) {
                 listContainer.innerHTML = `<p class="text-zinc-500 italic text-center py-4">Nenhum modelo selecionado.</p>`;
@@ -471,7 +449,7 @@
         }
 
         function clearCart() {
-            if (confirm("Deseja limpar todos os modelos selecionados do seu bloco atual?")) {
+            if (confirm("Deseja limpar todos os modelos selecionados?")) {
                 cartModels = [];
                 updateCartUI();
                 filterAndRender();
@@ -486,10 +464,9 @@
                 m = {
                     id: modelId,
                     provider: modelId.includes('/') ? modelId.split('/')[0] : "custom",
-                    max_tokens: existingInCart?.max_tokens || 128000,
+                    max_tokens: existingInCart?.max_tokens || 200000,
                     max_output_tokens: existingInCart?.max_output_tokens || 4096,
-                    max_completion_tokens: existingInCart?.max_completion_tokens || 4096,
-                    capabilities: existingInCart?.capabilities || { tools: true, chat_completions: true }
+                    capabilities: existingInCart?.capabilities || { tools: true, images: false, prompt_caching: false }
                 };
             }
 
@@ -498,14 +475,11 @@
             document.getElementById('modalModelId').innerText = m.id;
             document.getElementById('inputMaxTokens').value = existingInCart ? existingInCart.max_tokens : m.max_tokens;
             document.getElementById('inputMaxOutput').value = existingInCart ? existingInCart.max_output_tokens : m.max_output_tokens;
-            document.getElementById('inputMaxCompletion').value = existingInCart ? existingInCart.max_completion_tokens : (m.max_completion_tokens || m.max_output_tokens);
 
             const caps = existingInCart ? existingInCart.capabilities : m.capabilities;
             document.getElementById('chkTools').checked = !!caps.tools;
             document.getElementById('chkImages').checked = !!caps.images;
-            document.getElementById('chkParallel').checked = !!caps.parallel_tool_calls;
-            document.getElementById('chkCache').checked = !!caps.prompt_cache_key;
-            document.getElementById('chkInterleaved').checked = !!caps.interleaved_reasoning;
+            document.getElementById('chkCache').checked = !!caps.prompt_caching;
 
             updateConfigPreview();
             document.getElementById('configModal').classList.remove('hidden');
@@ -523,30 +497,20 @@
         }
 
         function buildSingleModelObject() {
-            const maxTokens = parseInt(document.getElementById('inputMaxTokens').value) || 128000;
+            const maxTokens = parseInt(document.getElementById('inputMaxTokens').value) || 200000;
             const maxOutput = parseInt(document.getElementById('inputMaxOutput').value) || 4096;
-            const maxCompletion = parseInt(document.getElementById('inputMaxCompletion').value) || maxOutput;
 
-            const config = {
+            return {
                 "name": currentEditingModel.id,
                 "max_tokens": maxTokens,
                 "max_output_tokens": maxOutput,
-                "max_completion_tokens": maxCompletion,
+                "extra_beta_headers": [],
                 "capabilities": {
                     "tools": document.getElementById('chkTools').checked,
                     "images": document.getElementById('chkImages').checked,
-                    "parallel_tool_calls": document.getElementById('chkParallel').checked,
-                    "prompt_cache_key": document.getElementById('chkCache').checked,
-                    "chat_completions": true,
-                    "interleaved_reasoning": document.getElementById('chkInterleaved').checked,
-                    "max_tokens_parameter": false
+                    "prompt_caching": document.getElementById('chkCache').checked
                 }
             };
-
-            if (document.getElementById('chkInterleaved').checked) {
-                config["supports_thinking"] = true;
-            }
-            return config;
         }
 
         function saveToCart() {
@@ -560,11 +524,10 @@
             showToast("Modelo salvo no bloco!");
         }
 
-        // Geração da estrutura direta solicitada (Iniciando direto em DevPass)
         function buildFullJsonStructure() {
             return {
-                "DevPass": {
-                    "api_url": "https://api.llmgateway.io/v1",
+                "LLM Gateway": {
+                    "api_url": "https://api.llmgateway.io",
                     "available_models": cartModels
                 }
             };
@@ -573,13 +536,12 @@
         function copyFullBlock() {
             const fullJsonString = JSON.stringify(buildFullJsonStructure(), null, 2);
             navigator.clipboard.writeText(fullJsonString).then(() => {
-                showToast("Bloco de configuração completo copiado!");
+                showToast("Bloco Anthropic copiado!");
             }).catch(err => {
                 alert("Falha ao copiar bloco: " + err);
             });
         }
 
-        // Modais de importação de JSON existente
         function openImportModal() {
             document.getElementById('importArea').value = "";
             document.getElementById('importModal').classList.remove('hidden');
@@ -597,11 +559,10 @@
                 const parsed = JSON.parse(rawText);
                 let importedList = null;
 
-                // Suporta ler direto do nó raiz "DevPass" ou do fallback antigo "openai_compatible"
-                if (parsed.DevPass?.available_models) {
+                if (parsed["LLM Gateway"]?.available_models) {
+                    importedList = parsed["LLM Gateway"].available_models;
+                } else if (parsed.DevPass?.available_models) {
                     importedList = parsed.DevPass.available_models;
-                } else if (parsed.openai_compatible?.DevPass?.available_models) {
-                    importedList = parsed.openai_compatible.DevPass.available_models;
                 } else if (parsed.available_models) {
                     importedList = parsed.available_models;
                 } else if (Array.isArray(parsed)) {
@@ -610,20 +571,24 @@
 
                 if (importedList && Array.isArray(importedList)) {
                     cartModels = importedList.map(m => {
+                        const caps = m.capabilities || {};
                         return {
                             name: m.name || m.id,
-                            max_tokens: m.max_tokens || 128000,
+                            max_tokens: m.max_tokens || 200000,
                             max_output_tokens: m.max_output_tokens || 4096,
-                            max_completion_tokens: m.max_completion_tokens || m.max_output_tokens || 4096,
-                            capabilities: m.capabilities || { tools: true, chat_completions: true },
-                            ...(m.supports_thinking && { supports_thinking: m.supports_thinking })
+                            extra_beta_headers: m.extra_beta_headers || [],
+                            capabilities: {
+                                tools: caps.tools !== undefined ? caps.tools : true,
+                                images: caps.images !== undefined ? caps.images : false,
+                                prompt_caching: caps.prompt_caching !== undefined ? caps.prompt_caching : (caps.prompt_cache_key !== undefined ? caps.prompt_cache_key : false)
+                            }
                         };
                     });
 
                     updateCartUI();
                     filterAndRender();
                     closeImportModal();
-                    showToast("Configurações anteriores importadas!");
+                    showToast("Configurações importadas com sucesso!");
                 } else {
                     alert("Não foi possível encontrar a lista de modelos ativos no JSON colado.");
                 }
