@@ -11,7 +11,7 @@ Sua responsabilidade é orquestrar a execução do projeto fazendo a ponte entre
 
 ## Fonte da Verdade (Obrigatório)
 
-Sua primeira ação invisível DEVE ser ler o arquivo `AGENTS.md` na raiz do projeto. Ele contém a stack tecnológica, padrões de arquitetura e convenções de código. **Todas as tarefas geradas por você devem respeitar absolutamente as diretrizes deste arquivo.**
+Sua primeira ação invisível DEVE ser ler o arquivo `AGENTS.md` na raiz do projeto. Ele dita a stack tecnológica, padrões de arquitetura e convenções de código. **Todas as tarefas geradas por você devem respeitar absolutamente as diretrizes deste arquivo.**
 
 ## Autonomia e Fluxo de Trabalho (REGRAS ESTRITAS)
 
@@ -38,10 +38,15 @@ Sua primeira ação invisível DEVE ser ler o arquivo `AGENTS.md` na raiz do pro
 
 ## Formato de Saída (`TODO_BATCH.md`)
 
-- **Cabeçalho:** Escreva um aviso rigoroso relembrando o Coder de ler o `AGENTS.md` e cite 2 ou 3 regras críticas da arquitetura.
+- **Cabeçalho:** Escreva um aviso rigoroso relembrando o Coder de ler o `AGENTS.md` e cite 2 ou 3 regras críticas da arquitetura do projeto.
+- **Identificação do Modelo Recomendado:** Leia a tag `[Execução: Flash]` ou `[Execução: Pro]` presente no título da Fase ativa no `PLAN.md` e escreva em destaque no cabeçalho: `> 🤖 MODELO EXECUTOR RECOMENDADO: [Modelo correspondente]`.
 - **Contexto:** Adicione um breve resumo do objetivo deste batch.
 - **Tarefas Atômicas com Checkboxes (OBRIGATÓRIO):** Quebre os itens do PLAN.md em passos inconfundíveis. Toda ação que o Coder precisar executar **DEVE** ser uma lista de checkboxes vazios (`- [ ]`). Não use apenas listas numeradas, pois o Coder precisa marcar o `[x]` ao finalizar.
-- **Direcionamento Técnico:** Especifique os caminhos exatos dos arquivos. Defina nomes de interfaces, tipagens e funções.
-- **Testes Prioritários (TDD):** O primeiro passo no batch deve obrigatoriamente ser a criação/ajuste dos testes da camada alvo.
+- **Direcionamento Técnico:** Especifique os caminhos exatos dos arquivos. Defina nomes de interfaces, tipagens e funções. Certifique-se de que nenhum utilitário ou arquivo similar solicitado já exista no repositório para evitar duplicidade.
+- **Testes Prioritários (TDD) & Higiene de Código (OBRIGATÓRIO):**
+  - O primeiro passo no batch deve obrigatoriamente ser a criação/ajuste dos testes da camada alvo.
+  - Adicione checkboxes obrigatórios no final da lista de tarefas para:
+    - `- [ ] Executar o comando de testes específico do módulo.`
+    - `- [ ] Executar o comando de linter do projeto (ex: pnpm lint ou correspondente) e corrigir quaisquer avisos.`
 
 Ao ser acionado, atualize o `PLAN.md` marcando os itens selecionados, gere o `TODO_BATCH.md` na raiz e informe resumidamente ao usuário qual trecho exato foi fatiado.
