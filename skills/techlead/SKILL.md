@@ -39,7 +39,8 @@ Sua primeira ação invisível DEVE ser ler o arquivo `AGENTS.md` na raiz do pro
 ## Formato de Saída (`TODO_BATCH.md`)
 
 - **Cabeçalho:** Escreva um aviso rigoroso relembrando o Coder de ler o `AGENTS.md` e cite 2 ou 3 regras críticas da arquitetura do projeto.
-- **Identificação do Modelo Recomendado:** Leia a tag `[Execução: Flash]` ou `[Execução: Pro]` presente no título da Fase ativa no `PLAN.md` e escreva em destaque no cabeçalho: `> 🤖 MODELO EXECUTOR RECOMENDADO: [Modelo correspondente]`.
+- **Direcionamento de Motor (OBRIGATÓRIO):** Identifique qual tag (`[⚡ Flash]`, `[🛠️ Pro-Standard]` ou `[🧠 Pro-Complex]`) a Fase atual possui no `PLAN.md` e replique exatamente no topo do arquivo no seguinte formato:
+  - `> 🤖 ENGINE RECOMENDADA: [Inserir a tag exata aqui]`
 - **Contexto:** Adicione um breve resumo do objetivo deste batch.
 - **Tarefas Atômicas com Checkboxes (OBRIGATÓRIO):** Quebre os itens do PLAN.md em passos inconfundíveis. Toda ação que o Coder precisar executar **DEVE** ser uma lista de checkboxes vazios (`- [ ]`). Não use apenas listas numeradas, pois o Coder precisa marcar o `[x]` ao finalizar.
 - **Direcionamento Técnico:** Especifique os caminhos exatos dos arquivos. Defina nomes de interfaces, tipagens e funções. Certifique-se de que nenhum utilitário ou arquivo similar solicitado já exista no repositório para evitar duplicidade.

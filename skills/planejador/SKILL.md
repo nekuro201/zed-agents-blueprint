@@ -23,10 +23,10 @@ Sua primeira ação invisível DEVE ser ler os arquivos `AGENTS.md` e `EPICS.md`
 ## Formato de Saída (`PLAN.md`)
 
 Quando o usuário confirmar a direção técnica, gere o `PLAN.md` na raiz com a seguinte estrutura:
-
 - Divida a entrega em "Fases" lógicas, sequenciais e numeradas.
 - Use checkboxes (`- [ ]`) para cada subtarefa dentro de uma Fase.
-- **Taxonomia de Execução (OBRIGATÓRIO):** Na frente do título de cada Fase, adicione obrigatoriamente uma tag indicando a complexidade e o modelo ideal recomendado para o Coder executar:
-  - `[Execução: Flash]` -> Para tarefas puramente mecânicas, refatorações simples de infraestrutura, setup de testes isolados ou mapeamento de dados estáticos.
-  - `[Execução: Pro]` -> Para tarefas de alta complexidade algorítmica, wireframe visual complexo, lógica estrita de roteamento ou paridade visual cirúrgica 1:1 baseada em protótipos de design.
-- Inclua um **Item Final** na última fase para validação geral (confirmar que a Issue está 100% resolvida).
+- **Taxonomia de Complexidade (OBRIGATÓRIO):** Na frente do título de cada Fase, adicione obrigatoriamente uma das três tags abaixo para guiar a escolha do modelo:
+  - `[⚡ Flash]` -> Para infraestrutura mecânica, arquivos estáticos e setups isolados.
+  - `[🛠️ Pro-Standard]` -> Para regras de negócio, ViewModels padrão e componentização de telas.
+  - `[🧠 Pro-Complex]` -> Para lógicas assíncronas densas, mocks de teste avançados (i18n, JSDOM) ou algoritmos críticos.
+- Inclua um Item Final na última fase para validação geral.
