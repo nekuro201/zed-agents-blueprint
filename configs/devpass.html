@@ -51,7 +51,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold tracking-tight text-emerald-500">LLM Gateway ➔ Zed Config</h1>
-                    <p class="text-xs text-zinc-400">Gere blocos de modelos no padrão Anthropic para o seu settings.json do Zed Editor</p>
+                    <p class="text-xs text-zinc-400">Gere blocos no formato exato (anthropic_compatible / openai_compatible) para o seu settings.json</p>
                 </div>
             </div>
 
@@ -78,13 +78,13 @@
                     </button>
                 </div>
 
-                <div id="cartList" class="flex flex-col gap-2 max-h-48 overflow-y-auto pr-1 text-xs text-zinc-400">
+                <div id="cartList" class="flex flex-col gap-2 max-h-56 overflow-y-auto pr-1 text-xs text-zinc-400">
                     <p class="text-zinc-500 italic text-center py-4">Nenhum modelo selecionado. Configure modelos na tabela ao lado para montar seu bloco.</p>
                 </div>
 
                 <div class="border-t border-zinc-800 pt-3 flex flex-col gap-2">
                     <button onclick="copyFullBlock()" id="btnCopyBlock" disabled class="w-full bg-emerald-600 disabled:bg-zinc-800 disabled:text-zinc-600 hover:bg-emerald-500 text-zinc-950 font-bold text-xs py-2.5 rounded-lg transition flex items-center justify-center gap-2">
-                        📋 Copiar Bloco Completo
+                        📋 Copiar Bloco Configurado
                     </button>
                     <button onclick="clearCart()" class="text-xs text-zinc-500 hover:text-red-400 transition text-center underline">
                         Limpar bloco selecionado
@@ -133,7 +133,7 @@
 
             <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center">
                 <div class="relative w-full">
-                    <input type="text" id="searchBar" oninput="filterAndRender()" placeholder="Filtrar por nome do modelo ou provedor..."
+                    <input type="text" id="searchBar" oninput="filterAndRender()" placeholder="Filtrar por nome do modelo, provedor ou padrão (anthropic/openai)..."
                         class="bg-zinc-950 border border-zinc-850 rounded-lg pl-10 pr-4 py-2 w-full text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-200">
                     <div class="absolute left-3 top-2.5 text-zinc-500">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
@@ -148,6 +148,7 @@
                             <tr class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
                                 <th class="py-3 px-4">Provedor</th>
                                 <th class="py-3 px-4">ID do Modelo / Nome</th>
+                                <th class="py-3 px-4 text-center">Padrão Zed</th>
                                 <th class="py-3 px-4 text-center">Contexto</th>
                                 <th class="py-3 px-4 text-center">Recursos</th>
                                 <th class="py-3 px-4 text-right">Ações</th>
@@ -155,7 +156,7 @@
                         </thead>
                         <tbody id="modelsTableBody" class="divide-y divide-zinc-800 text-sm text-zinc-300">
                             <tr>
-                                <td colspan="5" class="text-center py-8 text-zinc-500">Nenhum modelo carregado. Clique em "Sincronizar Modelos" para começar!</td>
+                                <td colspan="6" class="text-center py-8 text-zinc-500">Nenhum modelo carregado. Clique em "Sincronizar Modelos" para começar!</td>
                             </tr>
                         </tbody>
                     </table>
@@ -169,7 +170,10 @@
 
             <div class="border-b border-zinc-800 p-5 flex justify-between items-center bg-zinc-900">
                 <div>
-                    <h3 class="font-bold text-lg text-zinc-100">Configurar Modelo (Padrão Anthropic)</h3>
+                    <div class="flex items-center gap-2">
+                        <h3 class="font-bold text-lg text-zinc-100">Configurar Modelo</h3>
+                        <span id="modalProtocolBadge" class="text-[10px] font-bold font-mono px-2 py-0.5 rounded border">---</span>
+                    </div>
                     <p class="text-xs text-emerald-400 font-mono" id="modalModelId">---</p>
                 </div>
                 <button onclick="closeModal()" class="text-zinc-400 hover:text-zinc-100 transition">
@@ -193,7 +197,7 @@
 
                 <div>
                     <span class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Capacidades (Capabilities)</span>
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <label class="flex items-center gap-2 bg-zinc-950/50 p-2.5 rounded-lg border border-zinc-800/80 cursor-pointer">
                             <input type="checkbox" id="chkTools" onchange="updateConfigPreview()" class="rounded border-zinc-700 text-emerald-600 focus:ring-emerald-500 bg-zinc-900">
                             <span class="text-xs text-zinc-300">Tools</span>
@@ -204,13 +208,17 @@
                         </label>
                         <label class="flex items-center gap-2 bg-zinc-950/50 p-2.5 rounded-lg border border-zinc-800/80 cursor-pointer">
                             <input type="checkbox" id="chkCache" onchange="updateConfigPreview()" class="rounded border-zinc-700 text-emerald-600 focus:ring-emerald-500 bg-zinc-900">
-                            <span class="text-xs text-zinc-300">Prompt Caching</span>
+                            <span class="text-xs text-zinc-300">Prompt Caching / Cache Key</span>
+                        </label>
+                        <label class="flex items-center gap-2 bg-zinc-950/50 p-2.5 rounded-lg border border-zinc-800/80 cursor-pointer">
+                            <input type="checkbox" id="chkReasoning" onchange="updateConfigPreview()" class="rounded border-zinc-700 text-emerald-600 focus:ring-emerald-500 bg-zinc-900">
+                            <span class="text-xs text-zinc-300">Interleaved Reasoning</span>
                         </label>
                     </div>
                 </div>
 
                 <div>
-                    <span class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Visualização do Snippet</span>
+                    <span class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Visualização do Snippet do Modelo</span>
                     <pre class="bg-zinc-950 border border-zinc-850 rounded-lg p-3 text-xs font-mono text-emerald-400 overflow-x-auto max-h-40" id="jsonPreview"></pre>
                 </div>
             </div>
@@ -235,8 +243,8 @@
                 </button>
             </div>
             <div class="p-6 space-y-3">
-                <p class="text-xs text-zinc-400">Cole seu bloco atual `"LLM Gateway"` para ler ou modificar os modelos ativos:</p>
-                <textarea id="importArea" placeholder='{ "LLM Gateway": { "api_url": "https://api.llmgateway.io", "available_models": [...] } }'
+                <p class="text-xs text-zinc-400">Cole seu bloco com `anthropic_compatible` ou `openai_compatible` para editar:</p>
+                <textarea id="importArea" placeholder='{ "anthropic_compatible": { "DevPass-anthropic": { ... } }, "openai_compatible": { "DevPass-openai": { ... } } }'
                     class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-xs font-mono h-48 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-300 resize-none"></textarea>
             </div>
             <div class="border-t border-zinc-800 p-5 bg-zinc-900/50 flex gap-3">
@@ -261,16 +269,28 @@
         let currentEditingModel = null;
 
         window.onload = function() {
-            const cachedModels = localStorage.getItem('llmgateway_anthropic_models_cache');
+            const cachedModels = localStorage.getItem('llmgateway_zed_models_cache');
             if (cachedModels) {
                 allModels = JSON.parse(cachedModels);
+                // AUTO-MIGRAÇÃO DE CACHE: garante que Gemini antigos virem OpenAI
+                allModels.forEach(m => {
+                    if (m.id && m.id.toLowerCase().includes('gemini')) {
+                        m.isAnthropicBlock = false;
+                    }
+                });
                 document.getElementById('dbSource').innerText = "LocalStorage (Cache)";
                 document.getElementById('modelCount').innerText = allModels.length;
             }
 
-            const cachedCart = localStorage.getItem('llmgateway_anthropic_cart_cache');
+            const cachedCart = localStorage.getItem('llmgateway_zed_cart_cache');
             if (cachedCart) {
                 cartModels = JSON.parse(cachedCart);
+                cartModels.forEach(m => {
+                    const name = m.name || m.id || "";
+                    if (name.toLowerCase().includes('gemini')) {
+                        m.isAnthropicBlock = false;
+                    }
+                });
             }
 
             updateCartUI();
@@ -278,7 +298,7 @@
         };
 
         function clearCache() {
-            localStorage.removeItem('llmgateway_anthropic_models_cache');
+            localStorage.removeItem('llmgateway_zed_models_cache');
             allModels = [];
             document.getElementById('dbSource').innerText = "Vazio";
             document.getElementById('modelCount').innerText = "0";
@@ -338,30 +358,79 @@
 
             allModels = items.map(m => {
                 const id = m.id || m.name || "desconhecido";
-                const provider = id.includes('/') ? id.split('/')[0] : "custom";
-                const contextWindow = m.context_length || m.context_window || m.max_tokens || 128000;
-                const maxOutput = m.max_output_tokens || m.max_output || 4096;
-
                 const lowerId = id.toLowerCase();
-                const isVision = lowerId.includes('vision') || lowerId.includes('vl') || lowerId.includes('-v') || lowerId.includes('sonnet') || lowerId.includes('gpt-4o');
-                const hasTools = !lowerId.includes('instruct') || lowerId.includes('code') || lowerId.includes('deepseek');
-                const canCache = provider === 'deepseek' || provider === 'anthropic' || lowerId.includes('sonnet');
+                const provider = id.includes('/') ? id.split('/')[0] : "custom";
+
+                let maxTokens = m.context_length || m.context_window || m.max_tokens || 200000;
+                let maxOutput = 32000;
+                let maxCompletion = undefined;
+                let isAnthropicBlock = false;
+
+                let capabilities = {
+                    tools: true,
+                    images: lowerId.includes('vision') || lowerId.includes('vl') || lowerId.includes('gemini') || lowerId.includes('gpt-4o') || lowerId.includes('claude'),
+                    parallel_tool_calls: false,
+                    prompt_caching: false,
+                    interleaved_reasoning: false,
+                    max_tokens_parameter: false
+                };
+
+                // HEURÍSTICA DE MAPEAMENTO AUTOMÁTICO REFINADA
+                if (lowerId.includes('claude') || lowerId.includes('gpt-5')) {
+                    // Apenas Claude e GPT-5 usam o adaptador Anthropic
+                    isAnthropicBlock = true;
+                    maxTokens = 200000;
+                    maxOutput = 32000;
+                    capabilities.prompt_caching = lowerId.includes('claude');
+                }
+                else if (lowerId.includes('gemini')) {
+                    // Gemini rodando estritamente via OpenAI Compatible
+                    isAnthropicBlock = false;
+                    maxTokens = 1000000;
+                    maxOutput = 8192;
+                    capabilities.tools = true;
+                    capabilities.images = true;
+                    capabilities.parallel_tool_calls = false;
+                }
+                else if (lowerId.includes('deepseek')) {
+                    isAnthropicBlock = false;
+                    maxTokens = 128000;
+                    maxOutput = lowerId.includes('flash') ? 4096 : 8192;
+                    capabilities.interleaved_reasoning = true;
+                }
+                else if (lowerId.includes('kimi')) {
+                    isAnthropicBlock = false;
+                    maxTokens = 262144;
+                    maxOutput = 8192;
+                    capabilities.interleaved_reasoning = true;
+                }
+                else if (lowerId.startsWith('o1') || lowerId.startsWith('o3') || lowerId.includes('reasoning')) {
+                    isAnthropicBlock = false;
+                    maxTokens = 128000;
+                    maxCompletion = 16384;
+                    maxOutput = undefined;
+                    capabilities.interleaved_reasoning = true;
+                }
+                else { // Grok, GPT-4o, etc.
+                    isAnthropicBlock = false;
+                    maxTokens = 200000;
+                    maxOutput = 32000;
+                    capabilities.parallel_tool_calls = false;
+                }
 
                 return {
                     id: id,
                     provider: provider,
-                    max_tokens: contextWindow,
+                    isAnthropicBlock: isAnthropicBlock,
+                    max_tokens: maxTokens,
                     max_output_tokens: maxOutput,
-                    capabilities: {
-                        tools: hasTools,
-                        images: isVision,
-                        prompt_caching: canCache
-                    }
+                    max_completion_tokens: maxCompletion,
+                    capabilities: capabilities
                 };
             });
 
             allModels.sort((a, b) => a.id.localeCompare(b.id));
-            localStorage.setItem('llmgateway_anthropic_models_cache', JSON.stringify(allModels));
+            localStorage.setItem('llmgateway_zed_models_cache', JSON.stringify(allModels));
             document.getElementById('dbSource').innerText = source;
             document.getElementById('modelCount').innerText = allModels.length;
 
@@ -374,20 +443,30 @@
 
             let filtered = allModels;
             if (query) {
-                filtered = filtered.filter(m => m.id.toLowerCase().includes(query) || m.provider.toLowerCase().includes(query));
+                filtered = filtered.filter(m =>
+                    m.id.toLowerCase().includes(query) ||
+                    m.provider.toLowerCase().includes(query) ||
+                    (m.isAnthropicBlock ? 'anthropic' : 'openai').includes(query)
+                );
             }
 
             if (filtered.length === 0) {
-                body.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-zinc-500">Nenhum modelo encontrado.</td></tr>`;
+                body.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-zinc-500">Nenhum modelo encontrado.</td></tr>`;
                 return;
             }
 
             let html = "";
             filtered.forEach(m => {
-                const inCart = cartModels.some(item => item.name === m.id);
+                const inCart = cartModels.some(item => (item.name || item.id) === m.id);
+
                 const toolIcon = m.capabilities.tools ? `<span class="text-emerald-400 bg-emerald-950/40 border border-emerald-900/60 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono">TOOLS</span>` : '';
                 const imageIcon = m.capabilities.images ? `<span class="text-blue-400 bg-blue-950/40 border border-blue-900/60 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono">VISION</span>` : '';
-                const cacheIcon = m.capabilities.prompt_caching ? `<span class="text-purple-400 bg-purple-950/40 border border-purple-900/60 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono">CACHING</span>` : '';
+                const cacheIcon = m.capabilities.prompt_caching ? `<span class="text-purple-400 bg-purple-950/40 border border-purple-900/60 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono">CACHE</span>` : '';
+                const reasonIcon = m.capabilities.interleaved_reasoning ? `<span class="text-pink-400 bg-pink-950/40 border border-pink-900/60 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono">REASONING</span>` : '';
+
+                const protocolBadge = m.isAnthropicBlock
+                    ? `<span class="px-2 py-0.5 text-[10px] font-bold font-mono rounded border bg-amber-950/40 text-amber-400 border-amber-900/60">ANTHROPIC</span>`
+                    : `<span class="px-2 py-0.5 text-[10px] font-bold font-mono rounded border bg-blue-950/40 text-blue-400 border-blue-900/60">OPENAI</span>`;
 
                 html += `
                 <tr class="hover:bg-zinc-800/30 transition duration-100 ${inCart ? 'bg-emerald-950/10' : ''}">
@@ -395,11 +474,12 @@
                     <td class="py-3 px-4 font-semibold text-zinc-100 font-mono text-xs flex items-center gap-2">
                         ${m.id} ${inCart ? ' <span class="text-emerald-500" title="Adicionado ao bloco">●</span>' : ''}
                     </td>
+                    <td class="py-3 px-4 text-center">${protocolBadge}</td>
                     <td class="py-3 px-4 text-center text-xs font-mono text-zinc-400">${Number(m.max_tokens).toLocaleString()}</td>
                     <td class="py-3 px-4 text-center">
-                        <div class="flex items-center justify-center gap-1.5">
-                            ${toolIcon} ${imageIcon} ${cacheIcon}
-                            ${(!toolIcon && !imageIcon && !cacheIcon) ? '<span class="text-zinc-600">-</span>' : ''}
+                        <div class="flex items-center justify-center gap-1.5 flex-wrap">
+                            ${toolIcon} ${imageIcon} ${cacheIcon} ${reasonIcon}
+                            ${(!toolIcon && !imageIcon && !cacheIcon && !reasonIcon) ? '<span class="text-zinc-600">-</span>' : ''}
                         </div>
                     </td>
                     <td class="py-3 px-4 text-right">
@@ -419,7 +499,7 @@
             const btnCopy = document.getElementById('btnCopyBlock');
 
             countSpan.innerText = cartModels.length;
-            localStorage.setItem('llmgateway_anthropic_cart_cache', JSON.stringify(cartModels));
+            localStorage.setItem('llmgateway_zed_cart_cache', JSON.stringify(cartModels));
 
             if (cartModels.length === 0) {
                 listContainer.innerHTML = `<p class="text-zinc-500 italic text-center py-4">Nenhum modelo selecionado.</p>`;
@@ -430,10 +510,19 @@
             btnCopy.disabled = false;
             let html = "";
             cartModels.forEach(m => {
+                const name = m.name || m.id;
+                const isAnthropic = m.isAnthropicBlock;
+                const tag = isAnthropic
+                    ? `<span class="text-[9px] font-mono font-bold text-amber-400 bg-amber-950/60 px-1 py-0.5 rounded border border-amber-900/60">ANTHROPIC</span>`
+                    : `<span class="text-[9px] font-mono font-bold text-blue-400 bg-blue-950/60 px-1 py-0.5 rounded border border-blue-900/60">OPENAI</span>`;
+
                 html += `
-                <div class="flex items-center justify-between bg-zinc-950/80 border border-zinc-800 p-2 rounded-lg">
-                    <span class="font-mono font-semibold text-zinc-300 truncate max-w-[80%]" title="${m.name}">${m.name}</span>
-                    <button onclick="removeFromCart('${m.name}')" class="text-zinc-500 hover:text-red-400 font-bold px-1 transition text-sm">
+                <div class="flex items-center justify-between bg-zinc-950/80 border border-zinc-800 p-2 rounded-lg gap-2">
+                    <div class="flex items-center gap-2 truncate">
+                        ${tag}
+                        <span class="font-mono font-semibold text-zinc-300 truncate text-xs" title="${name}">${name}</span>
+                    </div>
+                    <button onclick="removeFromCart('${name}')" class="text-zinc-500 hover:text-red-400 font-bold px-1 transition text-sm">
                         ✕
                     </button>
                 </div>
@@ -443,7 +532,7 @@
         }
 
         function removeFromCart(name) {
-            cartModels = cartModels.filter(item => item.name !== name);
+            cartModels = cartModels.filter(item => (item.name || item.id) !== name);
             updateCartUI();
             filterAndRender();
         }
@@ -458,28 +547,41 @@
 
         function openConfigModal(modelId) {
             let m = allModels.find(item => item.id === modelId);
-            const existingInCart = cartModels.find(item => item.name === modelId);
+            const existingInCart = cartModels.find(item => (item.name || item.id) === modelId);
 
             if (!m) {
+                const lower = modelId.toLowerCase();
                 m = {
                     id: modelId,
                     provider: modelId.includes('/') ? modelId.split('/')[0] : "custom",
+                    isAnthropicBlock: lower.includes('claude') || lower.includes('gpt-5'), // Gemini removido!
                     max_tokens: existingInCart?.max_tokens || 200000,
-                    max_output_tokens: existingInCart?.max_output_tokens || 4096,
-                    capabilities: existingInCart?.capabilities || { tools: true, images: false, prompt_caching: false }
+                    max_output_tokens: existingInCart?.max_output_tokens || 32000,
+                    capabilities: existingInCart?.capabilities || { tools: true, images: false, prompt_caching: false, interleaved_reasoning: false }
                 };
             }
 
             currentEditingModel = m;
 
             document.getElementById('modalModelId').innerText = m.id;
+
+            const badge = document.getElementById('modalProtocolBadge');
+            if (m.isAnthropicBlock) {
+                badge.innerText = "PADRÃO ANTHROPIC";
+                badge.className = "text-[10px] font-bold font-mono px-2 py-0.5 rounded border bg-amber-950/40 text-amber-400 border-amber-900/60";
+            } else {
+                badge.innerText = "PADRÃO OPENAI";
+                badge.className = "text-[10px] font-bold font-mono px-2 py-0.5 rounded border bg-blue-950/40 text-blue-400 border-blue-900/60";
+            }
+
             document.getElementById('inputMaxTokens').value = existingInCart ? existingInCart.max_tokens : m.max_tokens;
-            document.getElementById('inputMaxOutput').value = existingInCart ? existingInCart.max_output_tokens : m.max_output_tokens;
+            document.getElementById('inputMaxOutput').value = existingInCart ? (existingInCart.max_output_tokens || 32000) : (m.max_output_tokens || 32000);
 
             const caps = existingInCart ? existingInCart.capabilities : m.capabilities;
             document.getElementById('chkTools').checked = !!caps.tools;
             document.getElementById('chkImages').checked = !!caps.images;
             document.getElementById('chkCache').checked = !!caps.prompt_caching;
+            document.getElementById('chkReasoning').checked = !!caps.interleaved_reasoning;
 
             updateConfigPreview();
             document.getElementById('configModal').classList.remove('hidden');
@@ -498,24 +600,48 @@
 
         function buildSingleModelObject() {
             const maxTokens = parseInt(document.getElementById('inputMaxTokens').value) || 200000;
-            const maxOutput = parseInt(document.getElementById('inputMaxOutput').value) || 4096;
+            const maxOutput = parseInt(document.getElementById('inputMaxOutput').value) || 32000;
+            const isAnthropic = currentEditingModel.isAnthropicBlock;
 
-            return {
-                "name": currentEditingModel.id,
-                "max_tokens": maxTokens,
-                "max_output_tokens": maxOutput,
-                "extra_beta_headers": [],
-                "capabilities": {
-                    "tools": document.getElementById('chkTools').checked,
-                    "images": document.getElementById('chkImages').checked,
-                    "prompt_caching": document.getElementById('chkCache').checked
+            if (isAnthropic) {
+                return {
+                    "name": currentEditingModel.id,
+                    "isAnthropicBlock": true,
+                    "max_tokens": maxTokens,
+                    "max_output_tokens": maxOutput,
+                    "extra_beta_headers": [],
+                    "capabilities": {
+                        "tools": document.getElementById('chkTools').checked,
+                        "images": document.getElementById('chkImages').checked,
+                        "prompt_caching": document.getElementById('chkCache').checked
+                    }
+                };
+            } else {
+                const obj = {
+                    "name": currentEditingModel.id,
+                    "isAnthropicBlock": false,
+                    "max_tokens": maxTokens,
+                    "max_output_tokens": maxOutput,
+                    "capabilities": {
+                        "tools": document.getElementById('chkTools').checked,
+                        "images": document.getElementById('chkImages').checked,
+                        "parallel_tool_calls": false,
+                        "prompt_cache_key": document.getElementById('chkCache').checked,
+                        "chat_completions": true,
+                        "interleaved_reasoning": document.getElementById('chkReasoning').checked,
+                        "max_tokens_parameter": false
+                    }
+                };
+                if (currentEditingModel.max_completion_tokens) {
+                    obj.max_completion_tokens = currentEditingModel.max_completion_tokens;
                 }
-            };
+                return obj;
+            }
         }
 
         function saveToCart() {
             const finalizedModel = buildSingleModelObject();
-            cartModels = cartModels.filter(item => item.name !== finalizedModel.name);
+            cartModels = cartModels.filter(item => (item.name || item.id) !== finalizedModel.name);
             cartModels.push(finalizedModel);
 
             updateCartUI();
@@ -525,18 +651,75 @@
         }
 
         function buildFullJsonStructure() {
-            return {
-                "LLM Gateway": {
-                    "api_url": "https://api.llmgateway.io",
-                    "available_models": cartModels
+            const anthropicModels = [];
+            const openaiModels = [];
+
+            cartModels.forEach(m => {
+                const name = m.name || m.id;
+                const lowerId = name.toLowerCase();
+                const isAnthropic = m.isAnthropicBlock !== undefined ? m.isAnthropicBlock : (lowerId.includes('claude') || lowerId.includes('gpt-5')); // Gemini removido!
+
+                if (isAnthropic) {
+                    anthropicModels.push({
+                        "name": name,
+                        "max_tokens": m.max_tokens || 200000,
+                        "max_output_tokens": m.max_output_tokens || 32000,
+                        "extra_beta_headers": m.extra_beta_headers || [],
+                        "capabilities": {
+                            "tools": m.capabilities.tools !== undefined ? m.capabilities.tools : true,
+                            "images": m.capabilities.images !== undefined ? m.capabilities.images : false,
+                            "prompt_caching": m.capabilities.prompt_caching !== undefined ? m.capabilities.prompt_caching : false
+                        }
+                    });
+                } else {
+                    const item = {
+                        "name": name,
+                        "max_tokens": m.max_tokens || 200000,
+                        "max_output_tokens": m.max_output_tokens || 32000,
+                        "capabilities": {
+                            "tools": m.capabilities.tools !== undefined ? m.capabilities.tools : true,
+                            "images": m.capabilities.images !== undefined ? m.capabilities.images : false,
+                            "parallel_tool_calls": m.capabilities.parallel_tool_calls !== undefined ? m.capabilities.parallel_tool_calls : false,
+                            "prompt_cache_key": m.capabilities.prompt_caching !== undefined ? m.capabilities.prompt_caching : false,
+                            "chat_completions": true,
+                            "interleaved_reasoning": m.capabilities.interleaved_reasoning !== undefined ? m.capabilities.interleaved_reasoning : false,
+                            "max_tokens_parameter": m.capabilities.max_tokens_parameter !== undefined ? m.capabilities.max_tokens_parameter : false
+                        }
+                    };
+                    if (m.max_completion_tokens) {
+                        item.max_completion_tokens = m.max_completion_tokens;
+                    }
+                    openaiModels.push(item);
                 }
-            };
+            });
+
+            const fullConfig = {};
+
+            if (anthropicModels.length > 0) {
+                fullConfig["anthropic_compatible"] = {
+                    "DevPass-anthropic": {
+                        "api_url": "https://api.llmgateway.io",
+                        "available_models": anthropicModels
+                    }
+                };
+            }
+
+            if (openaiModels.length > 0) {
+                fullConfig["openai_compatible"] = {
+                    "DevPass-openai": {
+                        "api_url": "https://api.llmgateway.io/v1",
+                        "available_models": openaiModels
+                    }
+                };
+            }
+
+            return fullConfig;
         }
 
         function copyFullBlock() {
             const fullJsonString = JSON.stringify(buildFullJsonStructure(), null, 2);
             navigator.clipboard.writeText(fullJsonString).then(() => {
-                showToast("Bloco Anthropic copiado!");
+                showToast("Bloco configurado copiado!");
             }).catch(err => {
                 alert("Falha ao copiar bloco: " + err);
             });
@@ -557,44 +740,61 @@
 
             try {
                 const parsed = JSON.parse(rawText);
-                let importedList = null;
+                let importedCart = [];
 
-                if (parsed["LLM Gateway"]?.available_models) {
-                    importedList = parsed["LLM Gateway"].available_models;
-                } else if (parsed.DevPass?.available_models) {
-                    importedList = parsed.DevPass.available_models;
-                } else if (parsed.available_models) {
-                    importedList = parsed.available_models;
-                } else if (Array.isArray(parsed)) {
-                    importedList = parsed;
+                if (parsed.anthropic_compatible) {
+                    Object.keys(parsed.anthropic_compatible).forEach(pKey => {
+                        if (parsed.anthropic_compatible[pKey]?.available_models) {
+                            parsed.anthropic_compatible[pKey].available_models.forEach(m => {
+                                importedCart.push(mapImportedModel(m, true));
+                            });
+                        }
+                    });
                 }
 
-                if (importedList && Array.isArray(importedList)) {
-                    cartModels = importedList.map(m => {
-                        const caps = m.capabilities || {};
-                        return {
-                            name: m.name || m.id,
-                            max_tokens: m.max_tokens || 200000,
-                            max_output_tokens: m.max_output_tokens || 4096,
-                            extra_beta_headers: m.extra_beta_headers || [],
-                            capabilities: {
-                                tools: caps.tools !== undefined ? caps.tools : true,
-                                images: caps.images !== undefined ? caps.images : false,
-                                prompt_caching: caps.prompt_caching !== undefined ? caps.prompt_caching : (caps.prompt_cache_key !== undefined ? caps.prompt_cache_key : false)
-                            }
-                        };
+                if (parsed.openai_compatible) {
+                    Object.keys(parsed.openai_compatible).forEach(pKey => {
+                        if (parsed.openai_compatible[pKey]?.available_models) {
+                            parsed.openai_compatible[pKey].available_models.forEach(m => {
+                                importedCart.push(mapImportedModel(m, false));
+                            });
+                        }
                     });
+                }
 
+                if (importedCart.length > 0) {
+                    cartModels = importedCart;
                     updateCartUI();
                     filterAndRender();
                     closeImportModal();
                     showToast("Configurações importadas com sucesso!");
                 } else {
-                    alert("Não foi possível encontrar a lista de modelos ativos no JSON colado.");
+                    alert("Não foi possível encontrar blocos 'anthropic_compatible' ou 'openai_compatible' no JSON.");
                 }
             } catch (e) {
-                alert("Erro ao ler JSON. Certifique-se de que a formatação está correta.");
+                alert("Erro ao ler JSON. Certifique-se de colar uma estrutura JSON válida.");
             }
+        }
+
+        function mapImportedModel(m, isAnthropic) {
+            const name = m.name || m.id;
+            const caps = m.capabilities || {};
+            return {
+                name: name,
+                isAnthropicBlock: isAnthropic,
+                max_tokens: m.max_tokens || 200000,
+                max_output_tokens: m.max_output_tokens || 32000,
+                max_completion_tokens: m.max_completion_tokens,
+                extra_beta_headers: m.extra_beta_headers || [],
+                capabilities: {
+                    tools: caps.tools !== undefined ? caps.tools : true,
+                    images: caps.images !== undefined ? caps.images : false,
+                    prompt_caching: caps.prompt_caching !== undefined ? caps.prompt_caching : (caps.prompt_cache_key !== undefined ? caps.prompt_cache_key : false),
+                    parallel_tool_calls: caps.parallel_tool_calls !== undefined ? caps.parallel_tool_calls : false,
+                    interleaved_reasoning: caps.interleaved_reasoning !== undefined ? caps.interleaved_reasoning : false,
+                    max_tokens_parameter: caps.max_tokens_parameter !== undefined ? caps.max_tokens_parameter : false
+                }
+            };
         }
 
         function showToast(text) {
