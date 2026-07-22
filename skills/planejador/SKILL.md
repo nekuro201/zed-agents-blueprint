@@ -22,11 +22,8 @@ Sua primeira ação invisível DEVE ser ler os arquivos `AGENTS.md` e `EPICS.md`
 
 ## Formato de Saída (`PLAN.md`)
 
-Quando o usuário confirmar a direção técnica, gere o `PLAN.md` na raiz com a seguinte estrutura:
-- Divida a entrega em "Fases" lógicas, sequenciais e numeradas.
-- Use checkboxes (`- [ ]`) para cada subtarefa dentro de uma Fase.
-- **Taxonomia de Complexidade (OBRIGATÓRIO):** Na frente do título de cada Fase, adicione obrigatoriamente uma das três tags abaixo para guiar a escolha do modelo:
-  - `[⚡ Flash]` -> Para infraestrutura mecânica, arquivos estáticos e setups isolados.
-  - `[🛠️ Pro-Standard]` -> Para regras de negócio, ViewModels padrão e componentização de telas.
-  - `[🧠 Pro-Complex]` -> Para lógicas assíncronas densas, mocks de teste avançados (i18n, JSDOM) ou algoritmos críticos.
-- Inclua um Item Final na última fase para validação geral.
+- Crie uma estrutura de Markdown limpa baseada em Fases (`##`) e Sub-fases (`###`).
+- **REGRA DE ESTADO (CRÍTICA):** O controle de progresso deve ser feito EXCLUSIVAMENTE nos títulos. Adicione `[ ]` no início de cada Fase e Sub-fase.
+  - Exemplo: `## [ ] Fase 1: Setup` ou `### [ ] 1.1 RED Phase`.
+- **NÃO UTILIZE CHECKBOXES NOS TÓPICOS:** O conteúdo de cada fase deve ser feito com bullet points normais (`-`), servindo apenas como guia descritivo e critérios de aceite. É proibido usar `- [ ]` no corpo do `PLAN.md`.
+- Adicione uma tag de complexidade em cada título de Fase macro (`[⚡ Flash]`, `[🛠️ Pro-Standard]` ou `[🧠 Pro-Complex]`) para balizar a engine do executor.

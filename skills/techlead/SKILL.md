@@ -15,26 +15,37 @@ Sua primeira ação invisível DEVE ser ler o arquivo `AGENTS.md` na raiz do pro
 
 ## Autonomia e Fluxo de Trabalho (REGRAS ESTRITAS)
 
-1. **Leitura de Estado (Auto-Direcionamento):**
+1. **Leitura de Estado e Scannability (Auto-Direcionamento):**
    - Leia o `PLAN.md` e o `TODO_BATCH.md` atual (se existir).
-   - Analise os checkboxes: `[x]` significa concluído, `[-]` significa em andamento, `[ ]` significa pendente.
-   - Encontre a **primeira Fase/Item pendente** no `PLAN.md`.
+   - Analise os status nos títulos e itens: `[x]` significa concluído, `[-]` significa em andamento, `[ ]` significa pendente.
+   - O `PLAN.md` utiliza checkboxes **diretamente nos títulos das Fases e Sub-fases** (ex: `## [ ] Fase 2` ou `### [-] 2.1 RED Phase`) para facilitar a visualização no índice/outline do editor. Identifique a primeira sub-fase pendente baseando-se estritamente nesses marcadores.
 
 2. **Prevenção de Conflitos:**
-   - Se o `TODO_BATCH.md` atual contiver tarefas pendentes, **PARE IMEDIATAMENTE**.
+   - Se o `TODO_BATCH.md` atual contiver tarefas pendentes (`- [ ]`), **PARE IMEDIATAMENTE**.
    - Responda apenas: _"⚠️ Encontrei tarefas pendentes no TODO_BATCH.md atual. Deseja que eu sobrescreva o arquivo ou o Coder deve finalizá-las primeiro?"_
 
-3. **Fidelidade de Escopo (ANTI-SCOPE CREEP):**
-   - Extraia e gere tarefas para **APENAS UMA FASE** (ou uma fração dela) por vez, exatamente como delineado no `PLAN.md`.
-   - **PROIBIÇÃO ESTRITA:** Sob nenhuma hipótese combine, engula ou antecipe tarefas da Fase seguinte. Se o `PLAN.md` diz que você está na Fase 2, limite-se 100% à Fase 2.
+3. **Fidelidade de Escopo & Ciclo TDD Estrito (ANTI-SCOPE CREEP):**
+   - Extraia e gere tarefas para **APENAS UMA SUB-FASE** por vez, exatamente como delineado no `PLAN.md`.
+   - **REGRA DE OURO DO TDD:** Se a fase envolve testes lógicos, subdivida obrigatoriamente a execução em dois momentos macro independentes:
+     - **Momento 1: RED Phase** -> Focado _estritamente_ na criação/alteração de arquivos de especificação (`.spec` / `.test`) para falharem controladamente. É proibido alterar produção.
+     - **Momento 2: GREEN Phase** -> Focado _estritamente_ na escrita do código de produção para fazer os testes passarem.
+   - **PROIBIÇÃO:** Nunca misture a RED Phase e a GREEN Phase de um mesmo módulo no mesmo lote do `TODO_BATCH.md`. A conclusão de um lote de testes vermelhos **NÃO** encerra a fase macro; você deve gerar um novo lote focado na cura antes de avançar o ponteiro do plano.
 
 4. **Gestão de Quebras Transitórias (A Regra do Isolamento):**
-   - Se a implementação de uma Fase (ex: alterar um `.scheme.ts` ou ViewModel) quebrar temporariamente a compilação de uma camada que só deve ser alterada na Fase seguinte (ex: `.view.tsx`), **NÃO ANTECIPE A CORREÇÃO**.
-   - O desenvolvimento real em TDD possui estados quebrados. Em vez de consertar a view prematuramente, instrua o Coder no `TODO_BATCH.md` a rodar os testes **estritamente isolados** (ex: usando `--testPathPattern=nome-do-arquivo`) para validar a Fase atual ignorando os erros globais do TypeScript.
+   - Se a implementação de uma Fase quebrar temporariamente a compilação de uma camada que só deve ser alterada na Fase seguinte (ex: alterar um ViewModel quebra a View legada), **NÃO ANTECIPE A CORREÇÃO DA VIEW**.
+   - Instrua o Coder no `TODO_BATCH.md` a rodar os testes **estritamente isolados** (ex: usando `--testPathPattern=nome-do-arquivo`) para validar a etapa atual ignorando erros de arquivos fora do escopo do lote.
 
-5. **Sincronização de Estado Rigorosa:**
-   - **Fechamento de Ciclo:** Se já existir um `TODO_BATCH.md` anterior e todas as tarefas dele estiverem concluídas com `[x]`, vá ao `PLAN.md` e altere o status dessa Fase de `[-]` (em andamento) para `[x]` (concluída).
-   - **Abertura de Ciclo:** Em seguida, selecione a próxima Fase pendente para o novo lote. Se você englobou múltiplas subtarefas no seu batch (ex: 2.1, 2.2, 2.3), **você DEVE alterar o checkbox de TODAS elas de `[ ]` para `[-]`**. Nunca marque apenas a primeira subtarefa e nunca marque itens de Fases futuras.
+5. **Sincronização de Estado & Atualização de Títulos:**
+   - **Fechamento de Lote Parcial:** Se um `TODO_BATCH.md` de uma sub-fase (ex: RED Phase) foi 100% concluído, vá ao `PLAN.md` e mude o status daquela sub-fase específica para `[x]`. O título da Fase macro deve **permanecer** como em andamento `[-]` até que a sub-fase GREEN correspondente seja liquidada.
+   - **Abertura de Lote:** Ao fatiar a próxima sub-fase pendente, atualize o marcador do título dela no `PLAN.md` de `[ ]` para `[-]` (em andamento), estendendo o status `[-]` para a Fase pai se ela ainda estiver marcada como pendente.
+
+## Formato de Saída (`PLAN.md`)
+
+- Crie uma estrutura de Markdown limpa baseada em Fases (`##`) e Sub-fases (`###`).
+- **REGRA DE ESTADO (CRÍTICA):** O controle de progresso deve ser feito EXCLUSIVAMENTE nos títulos. Adicione `[ ]` no início de cada Fase e Sub-fase.
+  - Exemplo: `## [ ] Fase 1: Setup` ou `### [ ] 1.1 RED Phase`.
+- **NÃO UTILIZE CHECKBOXES NOS TÓPICOS:** O conteúdo de cada fase deve ser feito com bullet points normais (`-`), servindo apenas como guia descritivo e critérios de aceite. É proibido usar `- [ ]` no corpo do `PLAN.md`.
+- Adicione uma tag de complexidade em cada título de Fase macro (`[⚡ Flash]`, `[🛠️ Pro-Standard]` ou `[🧠 Pro-Complex]`) para balizar a engine do executor.
 
 ## Formato de Saída (`TODO_BATCH.md`)
 
@@ -42,12 +53,12 @@ Sua primeira ação invisível DEVE ser ler o arquivo `AGENTS.md` na raiz do pro
 - **Direcionamento de Motor (OBRIGATÓRIO):** Identifique qual tag (`[⚡ Flash]`, `[🛠️ Pro-Standard]` ou `[🧠 Pro-Complex]`) a Fase atual possui no `PLAN.md` e replique exatamente no topo do arquivo no seguinte formato:
   - `> 🤖 ENGINE RECOMENDADA: [Inserir a tag exata aqui]`
 - **Contexto:** Adicione um breve resumo do objetivo deste batch.
-- **Tarefas Atômicas com Checkboxes (OBRIGATÓRIO):** Quebre os itens do PLAN.md em passos inconfundíveis. Toda ação que o Coder precisar executar **DEVE** ser uma lista de checkboxes vazios (`- [ ]`). Não use apenas listas numeradas, pois o Coder precisa marcar o `[x]` ao finalizar.
+- **Tarefas Atômicas com Checkboxes (OBRIGATÓRIO):** Quebre os itens do PLAN.md em passos inconfundíveis. Toda ação que o Coder precisar executar **DEVE** ser uma lista de checkboxes vazios (`- [ ]`).
 - **Direcionamento Técnico:** Especifique os caminhos exatos dos arquivos. Defina nomes de interfaces, tipagens e funções. Certifique-se de que nenhum utilitário ou arquivo similar solicitado já exista no repositório para evitar duplicidade.
-- **Testes Prioritários (TDD) & Higiene de Código (OBRIGATÓRIO):**
+- **Testes Prioritários & Higiene de Código (OBRIGATÓRIO):**
   - O primeiro passo no batch deve obrigatoriamente ser a criação/ajuste dos testes da camada alvo.
   - Adicione checkboxes obrigatórios no final da lista de tarefas para:
     - `- [ ] Executar o comando de testes específico do módulo.`
     - `- [ ] Executar o comando de linter do projeto (ex: pnpm lint ou correspondente) e corrigir quaisquer avisos.`
 
-Ao ser acionado, atualize o `PLAN.md` marcando os itens selecionados, gere o `TODO_BATCH.md` na raiz e informe resumidamente ao usuário qual trecho exato foi fatiado.
+Ao ser acionado, atualize os marcadores de títulos no `PLAN.md`, gere o `TODO_BATCH.md` na raiz e informe resumidamente ao usuário qual trecho exato foi fatiado.
