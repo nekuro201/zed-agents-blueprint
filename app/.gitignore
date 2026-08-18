@@ -1,0 +1,23 @@
+# Dependências e build
+node_modules/
+dist/
+dist-web/
+.pnpm-store/
+*.local
+
+# Ambiente
+.env
+.env.*
+!.env.example
+
+# Tauri / Rust
+src-tauri/target/
+src-tauri/gen/
+
+# Logs
+error.log
+*.log
+npm-debug.log*
+
+# Sistema
+.DS_Store

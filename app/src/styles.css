@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+/* Tokens do tema (Tailwind v4 — @theme) */
+@theme {
+  --font-sans: "JetBrainsMono Nerd Font Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-mono: "JetBrainsMono Nerd Font Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --color-surface: #0f1115;
+  --color-panel: #171a21;
+  --color-edge: #262b36;
+  --color-accent: #f59e0b;
+  --color-accent-dim: #b45309;
+  --color-muted: #7a7a7a;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-surface);
+  color: #e4e4e7;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Barra de rolagem discreta */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #0f1115;
+}
+::-webkit-scrollbar-thumb {
+  background: #262b36;
+  border-radius: 9999px;
+  border: 2px solid #0f1115;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #374151;
+}

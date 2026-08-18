@@ -1,0 +1,6 @@
+# Configuração do gerenciador (pnpm 11).
+# Autoriza build scripts (postinstall) de dependências que precisam deles
+# (esbuild para o bundler do Vite e o CLI do Tauri).
+allowBuilds:
+  esbuild: true
+  '@tauri-apps/cli': true

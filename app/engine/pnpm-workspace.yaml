@@ -1,0 +1,7 @@
+# Configuração do gerenciador (pnpm 11).
+# Autoriza build scripts (postinstall) de dependências que precisam deles
+# (esbuild para o tsup/Vite, e os scripts do SDK do pi).
+allowBuilds:
+  esbuild: true
+  '@google/genai': true
+  protobufjs: true
