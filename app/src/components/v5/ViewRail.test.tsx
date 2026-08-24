@@ -25,4 +25,10 @@ describe("ViewRail", () => {
     await user.click(screen.getByRole("button", { name: "Loop" }));
     expect(onSelect).toHaveBeenCalledWith("workspace");
   });
+
+  it("não renderiza Explorer nem Configurações (moveram para o StatusBar)", () => {
+    render(<ViewRail active="chat-thread" onSelect={() => {}} />);
+    expect(screen.queryByRole("button", { name: "Explorer" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Configurações" })).not.toBeInTheDocument();
+  });
 });

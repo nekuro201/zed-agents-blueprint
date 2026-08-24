@@ -4,6 +4,7 @@ import { VIEWS, type ViewId } from "../../lib/views";
 /**
  * Barra vertical de navegação entre views (v5 → `.rail`).
  * Componente apresentacional: recebe a view ativa e um callback de seleção.
+ * No v7 os botões Explorer e Configurações saíram daqui e foram para o StatusBar.
  */
 export function ViewRail({
   active,

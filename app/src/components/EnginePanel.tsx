@@ -18,6 +18,10 @@ export function EnginePanel({
   docs,
   planProgress = 0,
   completed = false,
+  hasPlan,
+  planComplete,
+  aborting = false,
+  onStart,
   onStop,
   onBackToChat,
 }: {
@@ -26,6 +30,10 @@ export function EnginePanel({
   docs: ProjectDocs;
   planProgress?: number;
   completed?: boolean;
+  hasPlan: boolean;
+  planComplete: boolean;
+  aborting?: boolean;
+  onStart?: () => void;
   onStop?: () => void;
   onBackToChat?: () => void;
 }) {
@@ -63,6 +71,10 @@ export function EnginePanel({
         cost={state.cost}
         agents={pipelineFromTimeline(state.timeline)}
         running={state.running}
+        hasPlan={hasPlan}
+        planComplete={planComplete}
+        aborting={aborting}
+        onStart={onStart}
         onStop={onStop}
       />
 

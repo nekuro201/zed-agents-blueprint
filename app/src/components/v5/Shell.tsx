@@ -4,30 +4,12 @@ import { useActiveView } from "../../hooks/useActiveView";
 import { useShortcuts } from "../../hooks/useShortcuts";
 import { VIEWS, viewByShortcut, type ViewId } from "../../lib/views";
 import { viewCommand, type PaletteCommand } from "../../lib/commands";
-import { AGENT_KEYS, AGENT_META } from "../../lib/agents";
-import { loadModelConfig, saveModelConfig, type AgentModelConfig } from "../../lib/modelConfig";
 import { TitleBar } from "./TitleBar";
 import { ViewRail } from "./ViewRail";
-import { Sidebar, type SidebarAgent } from "./Sidebar";
 import { StatusBar } from "./StatusBar";
 import { ExplorerTree, type ExplorerGroup } from "./ExplorerTree";
 import { CommandPalette } from "./CommandPalette";
 import { Pipeline, type PipelineAgent } from "./Pipeline";
-import { ModelSettingsModal } from "./ModelSettingsModal";
-
-/**
- * Dados placeholder do shell (Fase C não implementa explorer/roster persistidos;
- * valores reais vêm do engine nas próximas fases — ver PLAN 2.2/2.3).
- */
-function rosterFromConfig(config: AgentModelConfig): SidebarAgent[] {
-  return AGENT_KEYS.map((key) => ({
-    id: key,
-    label: AGENT_META[key].label,
-    icon: AGENT_META[key].icon,
-    model: config[key].model.replace(/^.*\//, ""),
-    thinking: config[key].thinking,
-  }));
-}
 
 const PIPELINE: PipelineAgent[] = [
   { id: "plan", label: "Planejador", icon: Brain, model: "deepseek-v4-flash", status: "done" },
@@ -70,8 +52,10 @@ function ViewPlaceholder({ view }: { view: ViewId }) {
 }
 
 /**
- * Shell v5: compõe TitleBar + Rail + Sidebar + main (view ativa) + Explorer +
- * StatusBar + CommandPalette, orquestrando navegação, palette e atalhos.
+ * Shell v7: compõe TitleBar + Rail + main (view ativa) + Explorer + StatusBar +
+ * CommandPalette. A Sidebar sai; o Orquestrador e o ModelSettingsModal vivem no
+ * App (fonte única de hasPlan/planComplete/onStartLoop e do modelConfig).
+ * O explorer é controlado por fora (App) — o toggle vive no StatusBar.
  */
 export function Shell({
   view: viewProp,
@@ -79,18 +63,15 @@ export function Shell({
   workspaceView,
   threadView,
   statusBar,
-  hasPlan = false,
-  planComplete = false,
   tokensLabel = "0",
   workspaceName,
-  activeLabel,
   onCloseWorkspace,
   onAddWorkspace,
   onNewThread,
   explorerGroups = [],
   explorerHasGit = true,
-  explorerOpen: explorerOpenProp,
-  onStartLoop,
+  explorerOpen = true,
+  onToggleExplorer,
 }: {
   /** View controlada por fora (App). Se ausente, o Shell controla internamente. */
   view?: ViewId;
@@ -98,27 +79,20 @@ export function Shell({
   workspaceView?: ReactNode;
   threadView?: ReactNode;
   statusBar?: ReactNode;
-  hasPlan?: boolean;
-  /** True quando o PLAN.md está 100% concluído (trava o Iniciar Loop). */
-  planComplete?: boolean;
   tokensLabel?: string;
   workspaceName?: string;
-  activeLabel?: string;
   onCloseWorkspace?: () => void;
   onAddWorkspace?: () => void;
   onNewThread?: () => void;
   explorerGroups?: ExplorerGroup[];
   explorerHasGit?: boolean;
   explorerOpen?: boolean;
-  onStartLoop?: () => void;
+  onToggleExplorer?: () => void;
 }) {
   const internal = useActiveView();
   const view = viewProp ?? internal.view;
   const setView = onViewChange ?? internal.setView;
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [explorerOpen, setExplorerOpen] = useState(explorerOpenProp ?? true);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [modelConfig, setModelConfig] = useState(loadModelConfig);
 
   const commands: PaletteCommand[] = useMemo(() => VIEWS.map((v) => viewCommand(v, () => setView(v.id))), [setView]);
 
@@ -129,7 +103,7 @@ export function Shell({
       const id = viewByShortcut(n);
       if (id) setView(id);
     },
-    onToggleExplorer: () => setExplorerOpen((open) => !open),
+    onToggleExplorer,
   });
 
   return (
@@ -142,18 +116,6 @@ export function Shell({
       />
       <div className="flex min-h-0 flex-1">
         <ViewRail active={view} onSelect={setView} />
-        <Sidebar
-          agents={rosterFromConfig(modelConfig)}
-          hasPlan={hasPlan}
-          planComplete={planComplete}
-          onStart={() => {
-            if (!hasPlan || planComplete) return;
-            onStartLoop?.();
-            setView("workspace");
-          }}
-          onOpenSettings={() => setSettingsOpen(true)}
-          activeLabel={activeLabel ?? workspaceName ?? "workspace"}
-        />
         <main className="flex min-w-0 flex-1 flex-col" data-view={view}>
           {view === "workspace" && workspaceView
             ? workspaceView
@@ -174,15 +136,6 @@ export function Shell({
         <StatusBar motor="idle" branch="feature/auth-ui" fase="Fase 2.2 · Validação Zod" tokens="8.4k" version="v0.1.0" />
       )}
       <CommandPalette open={paletteOpen} commands={commands} onClose={() => setPaletteOpen(false)} />
-      <ModelSettingsModal
-        open={settingsOpen}
-        config={modelConfig}
-        onSave={(next) => {
-          saveModelConfig(next);
-          setModelConfig(next);
-        }}
-        onClose={() => setSettingsOpen(false)}
-      />
     </div>
   );
 }

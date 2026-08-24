@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Shell } from "./Shell";
@@ -38,12 +38,16 @@ describe("Shell (2.1.1 — orquestração de navegação)", () => {
     expect(screen.getByRole("button", { name: /adicionar workspace/i })).toBeInTheDocument();
   });
 
-  it("Iniciar Loop com hasPlan chama onStartLoop e navega para o Loop", async () => {
-    const onStartLoop = vi.fn();
-    const user = userEvent.setup();
-    render(<Shell hasPlan onStartLoop={onStartLoop} />);
-    await user.click(screen.getByRole("button", { name: /iniciar loop/i }));
-    expect(onStartLoop).toHaveBeenCalledTimes(1);
-    expect(screen.getByText(/loop do orquestrador/i)).toBeInTheDocument();
+  it("Shell renderiza sem Sidebar", () => {
+    render(<Shell />);
+    expect(screen.queryByRole("button", { name: /iniciar loop/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/workspace ativo/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/planejador/i)).not.toBeInTheDocument();
+  });
+
+  it("não renderiza Explorer nem Configurações no rail (moveram para o StatusBar)", () => {
+    render(<Shell />);
+    expect(screen.queryByRole("button", { name: "Explorer" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Configurações" })).not.toBeInTheDocument();
   });
 });

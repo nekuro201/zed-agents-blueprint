@@ -405,6 +405,29 @@
     .bar { width: 42px; height: 3px; background: #111; border-radius: 99px; overflow: hidden; }
     .bar > i { display: block; height: 100%; width: 66%; background: var(--gold); }
 
+    .loop-cta {
+      height: 32px; padding: 0 16px; border-radius: 8px;
+      display: inline-flex; align-items: center; gap: 8px;
+      font-weight: 700; font-size: 12.5px;
+      background: linear-gradient(180deg, #e2c25a, var(--gold));
+      color: #1a1a1a;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 8px 22px rgba(212,175,55,0.22);
+      transition: transform .12s var(--ease), box-shadow .2s, background .2s, color .2s;
+    }
+    .loop-cta:hover {
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.14), 0 12px 30px rgba(212,175,55,0.34);
+      transform: translateY(-1px);
+    }
+    .loop-cta:active { transform: translateY(1px); }
+    .loop-cta.running {
+      background: rgba(232,93,93,0.14);
+      color: #ffb4b4;
+      box-shadow: 0 0 0 1px rgba(232,93,93,0.4), 0 0 20px rgba(232,93,93,0.16);
+    }
+    .loop-cta.running:hover {
+      box-shadow: 0 0 0 1px rgba(232,93,93,0.55), 0 0 30px rgba(232,93,93,0.26);
+    }
+
     .pipeline {
       display: flex; justify-content: center; align-items: flex-start; gap: 28px;
       padding: 14px 16px 16px; position: relative;
@@ -649,7 +672,6 @@
         <button class="rail-btn" data-view="workspace" id="rail-loop" title="Loop" onclick="setView('workspace')"><i class="fa-solid fa-bolt"></i></button>
         <button class="rail-btn" title="Explorer" onclick="toggleExplorer()"><i class="fa-solid fa-folder-tree"></i></button>
         <div class="push"></div>
-        <button class="rail-btn" title="Configurações" onclick="toggleModal('modal-settings')"><i class="fa-solid fa-gear"></i></button>
       </nav>
 
       <section class="main">
@@ -740,9 +762,9 @@
             <div class="arts">
               <span class="art on"><i class="fa-solid fa-list-check"></i> PLAN.md <span class="bar"><i id="plan-bar"></i></span></span>
               <div class="spacer"></div>
-              <button class="kbtn" onclick="toggleModal('modal-orchestrator')" title="Abrir orquestrador"><i class="fa-solid fa-sliders"></i> Orquestrador</button>
               <div class="chip"><i class="fa-regular fa-clock"></i> <span class="mono" id="loop-timer">00:00:00</span></div>
               <div class="chip gold"><i class="fa-solid fa-coins"></i> <b id="thread-tokens">8.4k</b></div>
+              <button class="loop-cta" id="btn-loop" onclick="toggleLoop()" title="Iniciar loop (⌘↵)"><i class="fa-solid fa-play"></i> Iniciar Loop</button>
             </div>
             <div class="pipeline">
               <div class="agent done" id="tracker-plan">
@@ -834,6 +856,8 @@
       <span id="display-thinking">thinking por agente</span>
       <span class="sep"></span>
       <span class="mono">Pi · v7</span>
+      <span class="sep"></span>
+      <button class="icon-btn" onclick="toggleModal('modal-settings')" title="Configurações"><i class="fa-solid fa-gear"></i></button>
     </footer>
   </div>
 
@@ -884,51 +908,6 @@
     </div>
   </div>
 
-  <div class="overlay" id="modal-orchestrator" onclick="if(event.target===this)closeModal('modal-orchestrator')">
-    <div class="modal">
-      <header>
-        <h3><i class="fa-solid fa-sliders"></i> Orquestrador · <span id="orch-branch">feature/auth-ui</span></h3>
-        <button class="icon-btn" onclick="closeModal('modal-orchestrator')"><i class="fa-solid fa-xmark"></i></button>
-      </header>
-      <div class="body">
-        <button class="btn btn-gold" id="btn-start-loop" onclick="startLoopUI()"><i class="fa-solid fa-play"></i> Iniciar Loop</button>
-        <button class="btn btn-danger" id="btn-stop-loop" onclick="stopLoopUI()" disabled style="margin-top:6px"><i class="fa-solid fa-stop"></i> Abortar Loop</button>
-        <div class="sec-title">Agents</div>
-        <div class="roster">
-          <article class="roster-card">
-            <div class="who"><i class="fa-solid fa-brain"></i> Planejador</div>
-            <div class="kv">
-              <div class="line"><span>modelo</span><b id="m-plan">claude-sonnet</b></div>
-              <div class="line"><span>thinking</span><b id="m-plan-t">Advanced</b></div>
-            </div>
-          </article>
-          <article class="roster-card">
-            <div class="who"><i class="fa-solid fa-user-tie"></i> Techlead</div>
-            <div class="kv">
-              <div class="line"><span>modelo</span><b id="m-lead">grok-4</b></div>
-              <div class="line"><span>thinking</span><b id="m-lead-t">Standard</b></div>
-            </div>
-          </article>
-          <article class="roster-card">
-            <div class="who"><i class="fa-solid fa-laptop-code"></i> Coder</div>
-            <div class="kv">
-              <div class="line"><span>modelo</span><b id="m-coder">deepseek-v4</b></div>
-              <div class="line"><span>thinking</span><b id="m-coder-t">Standard</b></div>
-            </div>
-          </article>
-          <article class="roster-card">
-            <div class="who"><i class="fa-solid fa-gavel"></i> Juiz TDD</div>
-            <div class="kv">
-              <div class="line"><span>modelo</span><b id="m-qa">grok-4</b></div>
-              <div class="line"><span>thinking</span><b id="m-qa-t">Maximum</b></div>
-            </div>
-          </article>
-        </div>
-        <button class="btn btn-ghost" onclick="closeModal('modal-orchestrator');toggleModal('modal-settings')">Configurar modelos</button>
-      </div>
-    </div>
-  </div>
-
   <div class="overlay" id="palette" onclick="if(event.target===this)closePalette()">
     <div class="modal palette">
       <input id="palette-input" placeholder="Buscar comando…" oninput="filterPalette(this.value)" />
@@ -945,7 +924,13 @@
       elapsed: 0,
       globalTokens: 145200,
       threadTokens: 8400,
-      activeSession: 'sess-1'
+      activeSession: 'sess-1',
+      models: {
+        plan: ['claude-sonnet', 'Advanced'],
+        lead: ['grok-4', 'Standard'],
+        coder: ['deepseek-v4', 'Standard'],
+        qa: ['grok-4', 'Maximum']
+      }
     };
 
     const sessions = {
@@ -1016,7 +1001,6 @@
       { k: 'Abrir grafo', fn: goGraph, keys: '⌘4' },
       { k: 'Abrir loop', fn: () => setView('workspace'), keys: '⌘3' },
       { k: 'Iniciar loop', fn: startLoopUI, keys: '⌘↵' },
-      { k: 'Configurar modelos', fn: () => toggleModal('modal-settings'), keys: '⌘,' },
       { k: 'Histórico / nova sessão', fn: () => openHistory(state.view === 'chat-thread' ? 'thread' : 'global'), keys: '⌘H' },
       { k: 'Toggle explorer', fn: toggleExplorer, keys: '⌘B' }
     ];
@@ -1033,7 +1017,6 @@
     function selectThread(branch, el) {
       document.getElementById('status-branch').textContent = branch;
       document.getElementById('thread-name').textContent = '/ ' + branch;
-      document.getElementById('orch-branch').textContent = branch;
       state.sessions = sessions[branch] || [];
       state.activeSession = (state.sessions[0] || {}).id || 'sess-1';
       document.querySelectorAll('.thread').forEach(t => t.classList.remove('active'));
@@ -1129,24 +1112,16 @@
     function filterPalette(q) { renderPalette(q); }
 
     function saveSettings() {
-      const map = {
+      state.models = {
         plan: [document.getElementById('s-plan-m').value, document.getElementById('s-plan-t').value],
         lead: [document.getElementById('s-lead-m').value, document.getElementById('s-lead-t').value],
         coder: [document.getElementById('s-coder-m').value, document.getElementById('s-coder-t').value],
         qa: [document.getElementById('s-qa-m').value, document.getElementById('s-qa-t').value]
       };
-      document.getElementById('m-plan').textContent = map.plan[0];
-      document.getElementById('m-plan-t').textContent = map.plan[1];
-      document.getElementById('m-lead').textContent = map.lead[0];
-      document.getElementById('m-lead-t').textContent = map.lead[1];
-      document.getElementById('m-coder').textContent = map.coder[0];
-      document.getElementById('m-coder-t').textContent = map.coder[1];
-      document.getElementById('m-qa').textContent = map.qa[0];
-      document.getElementById('m-qa-t').textContent = map.qa[1];
-      document.getElementById('t-plan').textContent = map.plan[0];
-      document.getElementById('t-lead').textContent = map.lead[0];
-      document.getElementById('t-coder').textContent = map.coder[0];
-      document.getElementById('t-qa').textContent = map.qa[0];
+      document.getElementById('t-plan').textContent = state.models.plan[0];
+      document.getElementById('t-lead').textContent = state.models.lead[0];
+      document.getElementById('t-coder').textContent = state.models.coder[0];
+      document.getElementById('t-qa').textContent = state.models.qa[0];
       document.getElementById('display-thinking').textContent = 'thinking por agente';
       toggleModal('modal-settings');
     }
@@ -1218,15 +1193,31 @@
       document.getElementById('loop-timer').textContent = `${h}:${m}:${s}`;
     }
 
-    function stopLoopUI() { state.abort = true; }
+    function setLoopBtn(running) {
+      const btn = document.getElementById('btn-loop');
+      if (!btn) return;
+      if (running) {
+        btn.classList.add('running');
+        btn.innerHTML = '<i class="fa-solid fa-stop"></i> Abortar Loop';
+      } else {
+        btn.classList.remove('running');
+        btn.innerHTML = '<i class="fa-solid fa-play"></i> Iniciar Loop';
+      }
+    }
+
+    function toggleLoop() {
+      if (state.running) stopLoopUI();
+      else startLoopUI();
+    }
+
+    function stopLoopUI() {
+      state.abort = true;
+      const btn = document.getElementById('btn-loop');
+      if (btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Abortando…';
+    }
 
     function resetLoopBtns() {
-      const start = document.getElementById('btn-start-loop');
-      const stop = document.getElementById('btn-stop-loop');
-      start.style.display = '';
-      stop.disabled = true;
-      stop.className = 'btn btn-ghost';
-      stop.innerHTML = '<i class="fa-solid fa-stop"></i> Abortar';
+      setLoopBtn(false);
       state.running = false;
       clearInterval(state.timer);
       setMotor('on');
@@ -1281,12 +1272,7 @@
       setView('workspace');
       const term = document.getElementById('loop-terminal');
       term.innerHTML = '';
-      const start = document.getElementById('btn-start-loop');
-      const stop = document.getElementById('btn-stop-loop');
-      start.style.display = 'none';
-      stop.disabled = false;
-      stop.className = 'btn btn-danger';
-      stop.innerHTML = '<i class="fa-solid fa-stop"></i> Abortar Loop';
+      setLoopBtn(true);
       setMotor('run');
       state.timer = setInterval(tick, 1000);
 
@@ -1297,9 +1283,9 @@
       };
 
       const models = {
-        lead: [document.getElementById('m-lead').textContent, document.getElementById('m-lead-t').textContent],
-        coder: [document.getElementById('m-coder').textContent, document.getElementById('m-coder-t').textContent],
-        qa: [document.getElementById('m-qa').textContent, document.getElementById('m-qa-t').textContent]
+        lead: state.models.lead,
+        coder: state.models.coder,
+        qa: state.models.qa
       };
 
       log('<span style="color:var(--gold-2);font-weight:600">ORQUESTRADOR ATIVO</span>');
@@ -1402,7 +1388,7 @@
       if (meta && e.key.toLowerCase() === 'k') { e.preventDefault(); openPalette(); }
       if (e.key === 'Escape') {
         closePalette();
-        ['modal-settings','modal-history','modal-orchestrator'].forEach(id => closeModal(id));
+        ['modal-settings','modal-history'].forEach(id => closeModal(id));
       }
       if (meta && e.alt) { }
       if (meta && !e.alt && e.key === '1') { e.preventDefault(); setView('chat-global'); }

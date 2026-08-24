@@ -6,7 +6,7 @@ import { LoopTop } from "./LoopTop";
 describe("LoopTop", () => {
   it("mostra PLAN.md, barra de progresso, timer e tokens/custo", () => {
     const { container } = render(
-      <LoopTop planProgress={66} elapsed={75} tokens={8400} cost={1.25} agents={[]} />,
+      <LoopTop planProgress={66} elapsed={75} tokens={8400} cost={1.25} agents={[]} hasPlan planComplete={false} />,
     );
     expect(screen.getByText(/PLAN\.md/)).toBeInTheDocument();
     const bar = container.querySelector("[data-testid='plan-bar']") as HTMLElement | null;
@@ -16,16 +16,41 @@ describe("LoopTop", () => {
     expect(screen.getByText(/8\.4k/)).toBeInTheDocument();
   });
 
-  it("Parar disabled se !running; clique chama onStop quando running", async () => {
+  it("Iniciar Loop fica disabled sem PLAN e com PLAN completo", () => {
+    const { rerender } = render(
+      <LoopTop planProgress={0} elapsed={0} tokens={0} cost={0} agents={[]} hasPlan={false} planComplete={false} />,
+    );
+    expect(screen.getByRole("button", { name: /iniciar loop/i })).toBeDisabled();
+
+    rerender(<LoopTop planProgress={100} elapsed={0} tokens={0} cost={0} agents={[]} hasPlan planComplete />);
+    expect(screen.getByRole("button", { name: /iniciar loop/i })).toBeDisabled();
+  });
+
+  it("Iniciar Loop habilitado chama onStart ao clicar", async () => {
+    const onStart = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <LoopTop planProgress={0} elapsed={0} tokens={0} cost={0} agents={[]} hasPlan planComplete={false} onStart={onStart} />,
+    );
+    await user.click(screen.getByRole("button", { name: /iniciar loop/i }));
+    expect(onStart).toHaveBeenCalledTimes(1);
+  });
+
+  it("running mostra Abortar Loop e chama onStop ao clicar", async () => {
     const onStop = vi.fn();
     const user = userEvent.setup();
-    const { rerender } = render(
-      <LoopTop planProgress={0} elapsed={0} tokens={0} cost={0} agents={[]} onStop={onStop} running={false} />,
+    render(
+      <LoopTop planProgress={0} elapsed={0} tokens={0} cost={0} agents={[]} hasPlan planComplete={false} running onStop={onStop} />,
     );
-    expect(screen.getByRole("button", { name: /parar/i })).toBeDisabled();
-    expect(screen.queryByRole("button", { name: /pausar/i })).not.toBeInTheDocument();
-    rerender(<LoopTop planProgress={0} elapsed={0} tokens={0} cost={0} agents={[]} onStop={onStop} running />);
-    await user.click(screen.getByRole("button", { name: /parar/i }));
+    await user.click(screen.getByRole("button", { name: /abortar loop/i }));
     expect(onStop).toHaveBeenCalledTimes(1);
+  });
+
+  it("aborting mostra Abortando… e não expõe Abortar Loop", () => {
+    render(
+      <LoopTop planProgress={0} elapsed={0} tokens={0} cost={0} agents={[]} hasPlan planComplete={false} running aborting />,
+    );
+    expect(screen.getByRole("button", { name: /abortando/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /abortar loop/i })).not.toBeInTheDocument();
   });
 });

@@ -7,6 +7,7 @@ import type { PlannerCard } from "./components/v5/ChatThreadView";
 import { Shell } from "./components/v5/Shell";
 import { EnginePanel } from "./components/EnginePanel";
 import { ChatThreadView } from "./components/v5/ChatThreadView";
+import { ModelSettingsModal } from "./components/v5/ModelSettingsModal";
 import { StatusBar, type MotorState } from "./components/v5/StatusBar";
 import { HomeScreen } from "./components/v6/HomeScreen";
 import { HomeSettingsModal } from "./components/v6/HomeSettingsModal";
@@ -15,7 +16,7 @@ import { parseDoc, planProgress } from "./lib/docs";
 import { pickDirectory } from "./components/ProjectBar";
 import { loadRecents, removeRecent, upsertRecent, type WorkspaceSession } from "./lib/workspaceSession";
 import { loadEnginePrefs, saveEnginePrefs, type EnginePrefs } from "./lib/enginePrefs";
-import { loadModelConfig } from "./lib/modelConfig";
+import { loadModelConfig, saveModelConfig, type AgentModelConfig } from "./lib/modelConfig";
 import type { AgentModels } from "./lib/protocol";
 import { createGitBranch, listGitBranches } from "./lib/engine";
 import { folderName, parseGitBranches } from "./lib/gitRepo";
@@ -30,6 +31,10 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [gitError, setGitError] = useState<string | null>(null);
   const [branches, setBranches] = useState<{ current: string; names: string[] }>({ current: "", names: [] });
+  const [modelConfig, setModelConfig] = useState<AgentModelConfig>(() => loadModelConfig());
+  const [modelSettingsOpen, setModelSettingsOpen] = useState(false);
+  const [explorerOpen, setExplorerOpen] = useState(true);
+  const [aborting, setAborting] = useState(false);
   const mock = prefs.mock;
 
   /** Card do Planejador (último da timeline) — streaming ou já concluído. */
@@ -135,6 +140,11 @@ export default function App() {
   const planStat = planProgress(planRows);
   const planComplete = planStat.total > 0 && planStat.done === planStat.total;
 
+  // Ao encerrar o loop (qualquer motivo), limpa o estado transitório de aborto.
+  useEffect(() => {
+    if (!state.running) setAborting(false);
+  }, [state.running]);
+
   if (!session) {
     return (
       <>
@@ -165,81 +175,103 @@ export default function App() {
       tokens={`${formatTokens(state.tokens.total)} · ${formatCost(state.cost)}`}
       elapsed={`${state.elapsed}s`}
       version={`v${state.version ?? "0.1.0"}`}
+      onToggleExplorer={() => setExplorerOpen((open) => !open)}
+      explorerOpen={explorerOpen}
+      onOpenSettings={() => setModelSettingsOpen(true)}
     />
   );
 
   return (
-    <Shell
-      view={view}
-      onViewChange={setView}
-      hasPlan={Boolean(docs.plan)}
-      planComplete={planComplete}
-      workspaceName={session.name}
-      activeLabel={branches.current || session.name}
-      onCloseWorkspace={() => setSession(null)}
-      onAddWorkspace={async () => {
-        const dir = await pickDirectory();
-        if (dir) persist(dir);
-      }}
-      onNewThread={async () => {
-        const name = window.prompt("Nome da nova thread (branch git)");
-        if (!name?.trim() || !session) return;
-        try {
-          await createGitBranch(session.path, name.trim());
-          await reloadBranches(session.path);
-          setGitError(null);
-        } catch (err) {
-          setGitError((err as Error).message);
-        }
-      }}
-      explorerGroups={explorerGroups}
-      explorerHasGit={hasGit}
-      tokensLabel={formatTokens(state.tokens.total)}
-      onStartLoop={() => {
-        if (!docs.plan || planComplete) return;
-        void actions.start(projectDir.trim(), mock, buildModels());
-      }}
-      workspaceView={
-        <EnginePanel
-          state={state}
-          notTauri={notTauri}
-          docs={docs}
-          planProgress={planStat.pct}
-          completed={state.completed}
-          onStop={() => void actions.stop()}
-          onBackToChat={() => setView("chat-thread")}
-        />
-      }
-      threadView={
-        <ChatThreadView
-          projectDir={projectDir}
-          mock={mock}
-          planning={state.planning}
-          docs={docs}
-          plannerCard={plannerCard}
-          onProjectDirChange={persist}
-          onMockChange={setMockValue}
-          onBrowse={async () => {
-            const dir = await pickDirectory();
-            if (dir) persist(dir);
-          }}
-          onGenerate={(prompt) => void actions.generatePlan(projectDir, prompt, mock, buildModels())}
-        />
-      }
-      statusBar={
-        gitError ? (
-          <StatusBar
-            motor={motor}
-            branch={session.name}
-            fase={gitError}
-            tokens={`${formatTokens(state.tokens.total)} · ${formatCost(state.cost)}`}
-            elapsed={`${state.elapsed}s`}
-            version={`v${state.version ?? "0.1.0"}`}
+    <>
+      <Shell
+        view={view}
+        onViewChange={setView}
+        workspaceName={session.name}
+        onCloseWorkspace={() => setSession(null)}
+        onAddWorkspace={async () => {
+          const dir = await pickDirectory();
+          if (dir) persist(dir);
+        }}
+        onNewThread={async () => {
+          const name = window.prompt("Nome da nova thread (branch git)");
+          if (!name?.trim() || !session) return;
+          try {
+            await createGitBranch(session.path, name.trim());
+            await reloadBranches(session.path);
+            setGitError(null);
+          } catch (err) {
+            setGitError((err as Error).message);
+          }
+        }}
+        explorerGroups={explorerGroups}
+        explorerHasGit={hasGit}
+        explorerOpen={explorerOpen}
+        onToggleExplorer={() => setExplorerOpen((open) => !open)}
+        tokensLabel={formatTokens(state.tokens.total)}
+        workspaceView={
+          <EnginePanel
+            state={state}
+            notTauri={notTauri}
+            docs={docs}
+            planProgress={planStat.pct}
+            completed={state.completed}
+            hasPlan={Boolean(docs.plan)}
+            planComplete={planComplete}
+            aborting={aborting}
+            onStart={() => {
+              if (!docs.plan || planComplete) return;
+              void actions.start(projectDir.trim(), mock, buildModels());
+            }}
+            onStop={() => {
+              setAborting(true);
+              void actions.stop();
+            }}
+            onBackToChat={() => setView("chat-thread")}
           />
-        ) : (
-          statusBar
-        )
-      }
-    />
+        }
+        threadView={
+          <ChatThreadView
+            projectDir={projectDir}
+            mock={mock}
+            planning={state.planning}
+            docs={docs}
+            plannerCard={plannerCard}
+            onProjectDirChange={persist}
+            onMockChange={setMockValue}
+            onBrowse={async () => {
+              const dir = await pickDirectory();
+              if (dir) persist(dir);
+            }}
+            onGenerate={(prompt) => void actions.generatePlan(projectDir, prompt, mock, buildModels())}
+          />
+        }
+        statusBar={
+          gitError ? (
+            <StatusBar
+              motor={motor}
+              branch={session.name}
+              fase={gitError}
+              tokens={`${formatTokens(state.tokens.total)} · ${formatCost(state.cost)}`}
+              elapsed={`${state.elapsed}s`}
+              version={`v${state.version ?? "0.1.0"}`}
+              onToggleExplorer={() => setExplorerOpen((open) => !open)}
+              explorerOpen={explorerOpen}
+              onOpenSettings={() => setModelSettingsOpen(true)}
+            />
+          ) : (
+            statusBar
+          )
+        }
+      />
+      <ModelSettingsModal
+        open={modelSettingsOpen}
+        config={modelConfig}
+        onSave={(next) => {
+          saveModelConfig(next);
+          setModelConfig(next);
+        }}
+        onClose={() => setModelSettingsOpen(false)}
+      />
+    </>
   );
 }
