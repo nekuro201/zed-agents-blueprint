@@ -45,8 +45,9 @@ export function Pipeline({ agents }: { agents: PipelineAgent[] }) {
           key={agent.id}
           data-status={agent.status}
           className={cn(
-            "relative z-10 flex min-w-18 flex-col items-center gap-1.5 transition-opacity duration-200",
+            "relative z-10 flex min-w-18 flex-col items-center gap-1.5 transition-[opacity,transform] duration-200",
             STATUS_OPACITY[agent.status],
+            agent.status === "active" && "-translate-y-0.5",
           )}
         >
           <div className={cn("grid h-9 w-9 place-items-center rounded-full border bg-panel", STATUS_AVATAR[agent.status])}>

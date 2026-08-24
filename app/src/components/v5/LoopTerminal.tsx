@@ -1,6 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { Brain, CornerDownRight, FlaskConical, Info, Package, Scale, TriangleAlert, XCircle } from "lucide-react";
 import { cn } from "../../lib/cn";
+import { useStickToBottom } from "../../hooks/useStickToBottom";
 import type { AgentRole } from "../../lib/protocol";
 import type { TimelineItem } from "../../hooks/useEngine";
 
@@ -20,6 +21,7 @@ const ROLE_LABEL: Record<AgentRole, string> = {
   leitor: "Leitor",
   techlead: "Techlead",
   coder: "Coder",
+  testador: "Testador",
   qa: "Juiz TDD",
   crise: "Crise",
 };
@@ -29,6 +31,7 @@ const ROLE_COLOR: Record<AgentRole, string> = {
   leitor: "text-violet-400",
   techlead: "text-sky-400",
   coder: "text-emerald-400",
+  testador: "text-cyan-400",
   qa: "text-fuchsia-400",
   crise: "text-red-400",
 };
@@ -195,13 +198,14 @@ function TerminalLine({ item }: { item: TimelineItem }) {
 }
 
 export function LoopTerminal({ items }: { items: TimelineItem[] }) {
-  const ref = useRef<HTMLDivElement>(null);
   const windowed = items.slice(-LOOP_TERMINAL_MAX_ITEMS);
+  const { ref, stickToBottom } = useStickToBottom<HTMLDivElement>();
 
+  // Acompanha o streaming: a timeline muda a cada novo item E a cada card de agente
+  // sendo "patcheado" (token/thinking). Se o usuário está perto do fim, rola junto.
   useEffect(() => {
-    const el = ref.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [windowed.length]);
+    stickToBottom();
+  }, [items, stickToBottom]);
 
   if (windowed.length === 0) {
     return (

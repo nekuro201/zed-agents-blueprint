@@ -7,6 +7,7 @@ function mount() {
     onTogglePalette: vi.fn(),
     onClosePalette: vi.fn(),
     onSelectView: vi.fn(),
+    onToggleExplorer: vi.fn(),
   };
   renderHook(() => useShortcuts(handlers));
   return handlers;
@@ -29,6 +30,12 @@ describe("useShortcuts", () => {
     const h = mount();
     fireEvent.keyDown(window, { key: "Escape" });
     expect(h.onClosePalette).toHaveBeenCalledTimes(1);
+  });
+
+  it("⌘B alterna o explorer", () => {
+    const h = mount();
+    fireEvent.keyDown(window, { key: "b", ctrlKey: true });
+    expect(h.onToggleExplorer).toHaveBeenCalledTimes(1);
   });
 
   it("ignora teclas sem modificador", () => {

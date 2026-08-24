@@ -44,8 +44,9 @@ Decisões firmadas (riscos de tempo resolvidos):
    agregar `token/thinking` por card de agente, limitar nº de cards e linhas do
    terminal (descartar os mais antigos), estado nunca cresce sem limite. (Risco #3)
 
-A **Fase C** (chat com histórico real + explorer multi-projeto/multi-branch) fica
-**fora** desta versão — manter placeholders visuais, nunca implementar de primeira.
+A **Fase C** (chat com histórico real + dois loops em paralelo) fica **fora**.
+A home v6 (`PLAN-workspace-home.md`) é o gate: app inicia vazio; explorer mostra
+o path aberto e branches git; “nova thread” = `git checkout -b`. Sem API keys na UI.
 
 ---
 
@@ -91,8 +92,9 @@ A **Fase C** (chat com histórico real + explorer multi-projeto/multi-branch) fi
 ### Por que sidecar Node e não rodar o SDK na webview?
 1. O SDK é Node-only (TUI + bindings nativos), não roda em webview.
 2. Evita CORS/fetch customizado para o gateway (em Node, rede nativa).
-3. Editamos arquivos do projeto-alvo com fs real e rodamos `pnpm test`/git com
-   `child_process` (a webview não tem esses privilégios; precisaria de plugins).
+3. Editamos arquivos do projeto-alvo com fs real e rodamos git com
+   `child_process`; a verificação de testes fica com o agente testador (skill com
+   ferramentas) — a webview não tem esses privilégios; precisaria de plugins.
 4. Reaproveita 1:1 a lógica de `automacao.js`/`automacao-sdk.ts`.
 
 ### Tradeoffs aceitos (protótipo)
@@ -152,12 +154,15 @@ app/
    `.agents/skills/` do projeto) + `AGENTS.md` → gera `TODO_BATCH.md`.
 3. **Coder** → prompt com a skill `coder`; executa o batch com ferramentas reais
    (read/bash/edit/write do SDK).
-4. **Testes** → `pnpm test` (nunca npm; `PI_TEST_COMMAND` para customizar).
+4. **Verificação (Testador)** → agente com a skill `testador`: roda a suíte de
+   testes reais quando existe ou inspeciona os entregáveis do `TODO_BATCH.md` em
+   projetos simples (sem comando de teste padrão). Escreve `test-result.json`.
 5. **QA (Zod)** → julga `ESPERADO` / `INESPERADO` a partir do `error.log`.
 6. **Fase concluída** → PLAN.md marcado de forma **determinística** (não via LLM)
    + `git commit` semântico.
 7. **Estouro (3 tentativas)** → **Protocolo de Crise**: modelo sênior
-   (`grok-4-5`) reescreve o `TODO_BATCH.md` e o fluxo para para auditoria humana.
+   (default `deepseek-v4-flash`; troque via `PI_CRISIS_MODEL` para `grok-4-5` em produção)
+   reescreve o `TODO_BATCH.md` e o fluxo para para auditoria humana.
 
 ### Diferenças intencionais vs. automacao.js
 | Antes | Agora |
@@ -165,7 +170,7 @@ app/
 | `execSync("pi -p ...")` bloqueante | SDK em processo + eventos em streaming |
 | regex sobre stdout do LLM | saída estruturada com **Zod** (reader/QA) |
 | LLM editava o PLAN.md (frágil) | edição local determinística dos marcadores |
-| `npm run test` | `pnpm test` |
+| `npm run test` | verificação pelo agente `testador` (suíte real ou entregáveis) |
 | função de loop única (sem controle) | `pause` / `resume` / `inject` / `stop` (human-in-the-loop) |
 
 ---
@@ -173,7 +178,9 @@ app/
 ## Modelos e Engines
 
 - `PI_DEFAULT_MODEL` (default `llmgateway/deepseek-v4-flash`) — leitor/techlead/coder/QA.
-- `PI_CRISIS_MODEL` (default `llmgateway/grok-4-5`) — protocolo de crise (thinking `medium`).
+- `PI_CRISIS_MODEL` (default `llmgateway/deepseek-v4-flash` — troque para `grok-4-5` em produção) — protocolo de crise (thinking `medium`).
+- A UI envia a config de modelos por papel no comando `start`/`plan` (override do default);
+  o Juiz TDD (`qa`) também dirige o leitor (fallback) e o protocolo de crise.
 - Resolução por nome (`provider/modelId`) via `ModelRegistry` do SDK; se falhar,
   usa o modelo padrão do `~/.pi/agent`. Nunca quebra a execução.
 - Taxonomia do GEM (`[⚡ Flash]`, `[🛠️ Pro-Standard]`, `[🧠 Pro-Complex]`) é

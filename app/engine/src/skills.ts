@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-export type SkillName = "planejador" | "techlead" | "coder";
+export type SkillName = "planejador" | "techlead" | "coder" | "testador";
 
 /**
  * Localiza o conteúdo do SKILL.md de uma skill local.

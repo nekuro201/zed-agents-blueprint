@@ -1,8 +1,9 @@
 import { useState } from "react";
+import { ArrowUp } from "lucide-react";
 
 /**
  * Composer da Chat da Thread (v5 → `.composer`).
- * O usuário descreve o escopo e o Planejador gera o PLAN.md (comando `plan`).
+ * Enter envia; Shift+Enter quebra linha.
  */
 export function ChatThreadPrompt({
   onGenerate,
@@ -28,23 +29,23 @@ export function ChatThreadPrompt({
           disabled={disabled}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-              e.preventDefault();
-              submit();
-            }
+            if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
+            e.preventDefault();
+            submit();
           }}
           placeholder="Descreva o escopo… o Planejador gera o PLAN.md"
           rows={3}
-          className="w-full resize-none rounded-lg border border-edge bg-surface px-3 py-2 pr-14 text-sm leading-relaxed text-zinc-100 placeholder:text-zinc-600 focus:border-accent focus:outline-none disabled:opacity-40"
+          className="w-full resize-none rounded-lg border border-edge bg-surface px-3 py-2 pr-12 text-sm leading-relaxed text-zinc-100 placeholder:text-zinc-600 focus:border-accent focus:outline-none disabled:opacity-40"
         />
         <button
           type="button"
           onClick={submit}
           disabled={!text.trim() || disabled}
-          title="Enviar para o Planejador (Ctrl/Cmd+Enter)"
-          className="absolute bottom-2 right-2 rounded-md bg-amber-500 px-3 py-1.5 text-xs font-bold text-zinc-950 transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+          aria-label="Enviar"
+          title="Enviar (Enter)"
+          className="absolute bottom-2 right-2 grid h-[30px] w-[30px] place-items-center rounded-md bg-amber-500 text-zinc-950 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          Enviar
+          <ArrowUp size={16} aria-hidden />
         </button>
       </div>
     </div>

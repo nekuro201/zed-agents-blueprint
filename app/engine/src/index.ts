@@ -53,7 +53,7 @@ async function main(): Promise<void> {
       if (args.mock) {
         await runMock({ projectDir: cmd.projectDir, emit: emitEvent, gate });
       } else {
-        await runOrchestrator({ projectDir: cmd.projectDir, emit: emitEvent, gate });
+        await runOrchestrator({ projectDir: cmd.projectDir, emit: emitEvent, gate, models: cmd.models });
       }
     } catch (err) {
       emit({ type: "error", message: (err as Error).message });
@@ -69,7 +69,7 @@ async function main(): Promise<void> {
     }
     running = true;
     try {
-      await generatePlan({ projectDir: cmd.projectDir, prompt: cmd.prompt, emit, mock: args.mock });
+      await generatePlan({ projectDir: cmd.projectDir, prompt: cmd.prompt, emit, mock: args.mock, model: cmd.models?.planejador });
     } catch (err) {
       emit({ type: "error", message: (err as Error).message });
     } finally {

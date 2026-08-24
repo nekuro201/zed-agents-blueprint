@@ -35,6 +35,16 @@ export async function readProjectFile(projectDir: string, relativePath: string):
   }
 }
 
+export async function listGitBranches(projectDir: string): Promise<{ current: string; branches: string[] }> {
+  if (!isTauri()) return { current: "", branches: [] };
+  return invoke("git_branches", { projectDir });
+}
+
+export async function createGitBranch(projectDir: string, name: string): Promise<void> {
+  if (!isTauri()) return;
+  await invoke("git_checkout_new", { projectDir, name });
+}
+
 export function onEngineEvent(cb: (payload: string) => void): Promise<UnlistenFn> {
   return listen<string>("engine-event", (ev) => cb(ev.payload));
 }

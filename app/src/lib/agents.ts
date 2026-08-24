@@ -21,5 +21,5 @@ export const AGENT_META: Record<AgentKey, AgentMeta> = {
   plan: { label: "Planejador", icon: Brain, defaultModel: "llmgateway/deepseek-v4-flash", defaultThinking: "Standard" },
   techlead: { label: "Techlead", icon: ClipboardList, defaultModel: "llmgateway/deepseek-v4-flash", defaultThinking: "Standard" },
   coder: { label: "Coder", icon: Code2, defaultModel: "llmgateway/deepseek-v4-flash", defaultThinking: "Standard" },
-  qa: { label: "Juiz TDD", icon: Scale, defaultModel: "llmgateway/grok-4-5", defaultThinking: "Maximum" },
+  qa: { label: "Juiz TDD", icon: Scale, defaultModel: "llmgateway/deepseek-v4-flash", defaultThinking: "Maximum" },
 };

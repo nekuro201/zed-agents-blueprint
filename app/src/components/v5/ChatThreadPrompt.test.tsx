@@ -21,12 +21,29 @@ describe("ChatThreadPrompt (composer do Planejador)", () => {
     expect(textarea).toHaveValue("");
   });
 
-  it("envia com Ctrl+Enter", async () => {
+  it("envia com Enter (sem Shift)", async () => {
     const onGenerate = vi.fn();
     const user = userEvent.setup();
     render(<ChatThreadPrompt onGenerate={onGenerate} />);
     await user.type(screen.getByPlaceholderText(/descreva o escopo/i), "Feature X");
-    await user.keyboard("{Control>}{Enter}{/Control}");
+    await user.keyboard("{Enter}");
     expect(onGenerate).toHaveBeenCalledWith("Feature X");
+  });
+
+  it("Shift+Enter não envia", async () => {
+    const onGenerate = vi.fn();
+    const user = userEvent.setup();
+    render(<ChatThreadPrompt onGenerate={onGenerate} />);
+    await user.type(screen.getByPlaceholderText(/descreva o escopo/i), "Linha");
+    await user.keyboard("{Shift>}{Enter}{/Shift}");
+    expect(onGenerate).not.toHaveBeenCalled();
+  });
+
+  it("botão Enviar fica ancorado no canto do box", () => {
+    render(<ChatThreadPrompt onGenerate={() => {}} />);
+    const btn = screen.getByRole("button", { name: /enviar/i });
+    expect(btn.className).toMatch(/absolute/);
+    expect(btn.className).toMatch(/bottom-/);
+    expect(btn.className).toMatch(/right-/);
   });
 });

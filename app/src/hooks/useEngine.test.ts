@@ -40,3 +40,42 @@ describe("reducer 2.2.3 — acumuladores e timer", () => {
     expect(reducer(paused, { type: "tick" }).elapsed).toBe(0);
   });
 });
+
+describe("reducer F2 — planning", () => {
+  it("começa com planning=false", () => {
+    expect(initialState.planning).toBe(false);
+  });
+
+  it("status starting com detail de PLAN.md liga planning", () => {
+    const s = apply(initialState, { type: "status", status: "starting", detail: "Planejador gerando o PLAN.md…" });
+    expect(s.planning).toBe(true);
+  });
+
+  it("plan-done desliga planning", () => {
+    let s = apply(initialState, { type: "status", status: "starting", detail: "Planejador gerando o PLAN.md…" });
+    expect(s.planning).toBe(true);
+    s = apply(s, { type: "plan-done", projectDir: "/tmp/proj" });
+    expect(s.planning).toBe(false);
+  });
+});
+
+describe("reducer — completed (trava de segurança)", () => {
+  it("done (todas as fases concluídas) marca completed=true", () => {
+    const s = apply(initialState, { type: "done", message: "🎉 Todas as fases do PLAN.md estão concluídas." });
+    expect(s.completed).toBe(true);
+  });
+
+  it("um novo loop (status starting) reseta completed=false", () => {
+    let s = apply(initialState, { type: "done", message: "🎉 Concluído." });
+    expect(s.completed).toBe(true);
+    s = apply(s, { type: "status", status: "starting" });
+    expect(s.completed).toBe(false);
+  });
+
+  it("gerar novo plano (plan-done) reseta completed=false", () => {
+    let s = apply(initialState, { type: "done", message: "🎉 Concluído." });
+    expect(s.completed).toBe(true);
+    s = apply(s, { type: "plan-done", projectDir: "/tmp/proj" });
+    expect(s.completed).toBe(false);
+  });
+});

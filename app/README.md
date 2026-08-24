@@ -42,8 +42,7 @@ Variáveis de ambiente do engine (opcionais):
 | Var | Default | Significado |
 | :--- | :--- | :--- |
 | `PI_DEFAULT_MODEL` | `llmgateway/deepseek-v4-flash` | modelo dos agentes do ciclo |
-| `PI_CRISIS_MODEL` | `llmgateway/grok-4-5` | modelo sênior no protocolo de crise |
-| `PI_TEST_COMMAND` | `pnpm test` | runner de testes do projeto-alvo |
+| `PI_CRISIS_MODEL` | `llmgateway/deepseek-v4-flash` | modelo sênior no protocolo de crise (troque p/ `grok-4-5` em produção) |
 | `PI_SKILLS_DIR` | — | onde buscar os `SKILL.md` (senão usa `.agents/skills` do projeto ou `../skills`) |
 | `PI_ENGINE_MOCK` | — | `1` força modo simulado |
 | `PI_ENGINE_PATH` | `<app>/engine/dist/index.mjs` | caminho do motor p/ o Rust |

@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pi Factory · Grafo (E3) — Protótipo UI/UX</title>
+  <style>
+    :root {
+      --bg: #0d0e12;
+      --panel: #141414;
+      --panel-2: #161616;
+      --line: #26272b;
+      --line-hi: #33343a;
+      --gold: #d4af37;
+      --gold-2: #f5b629;
+      --text: #e8e6df;
+      --muted: #8b8b90;
+      --dim: #5c5c62;
+      --ok: #46c06a;
+      --warn: #e5b33d;
+      --err: #e06060;
+      --mono: "JetBrainsMono Nerd Font", "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+      --sans: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: var(--sans); font-size: 13px; overflow: hidden;
+    }
+    .shell { display: grid; grid-template-rows: 40px 1fr 26px; height: 100%; }
+
+    /* título */
+    .titlebar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 0 12px; border-bottom: 1px solid var(--line);
+      background: var(--panel-2);
+    }
+    .titlebar .logo {
+      width: 20px; height: 20px; border-radius: 6px;
+      background: linear-gradient(135deg, var(--gold), #a97c16);
+      display: grid; place-items: center; color: #111; font-weight: 800; font-size: 13px;
+    }
+    .titlebar .name { font-weight: 600; font-size: 12px; }
+    .titlebar .sub { color: var(--muted); font-size: 11px; }
+    .titlebar .spacer { flex: 1; }
+    .chip { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
+    .chip.gold { color: var(--gold); border: 1px solid rgba(212,175,55,.4); border-radius: 20px; padding: 2px 9px; background: rgba(212,175,55,.08); }
+
+    /* corpo */
+    .body { display: grid; grid-template-columns: 48px 1fr; height: 100%; }
+
+    /* rail */
+    .rail { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 10px 0; border-right: 1px solid var(--line); background: var(--panel-2); }
+    .rail .nav {
+      width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center;
+      color: var(--dim); border: 1px solid transparent; cursor: pointer; background: transparent;
+    }
+    .rail .nav:hover { color: var(--text); background: #1c1d22; }
+    .rail .nav.active { color: var(--gold); border-color: rgba(212,175,55,.35); background: rgba(212,175,55,.08); }
+    .rail .nav svg { width: 16px; height: 16px; }
+
+    /* view */
+    .view { display: flex; flex-direction: column; min-width: 0; }
+    .view-header { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+    .view-header h2 { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .view-header h2 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
+    .view-header h2 .dot.on { background: var(--ok); }
+    .view-header .spacer { flex: 1; }
+
+    .graph-wrap { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+
+    /* toolbar do grafo */
+    .g-toolbar {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel);
+    }
+    .g-title { font-weight: 600; font-size: 12px; display: flex; align-items: center; gap: 8px; }
+    .g-badge {
+      font-size: 10px; font-weight: 600; padding: 2px 9px; border-radius: 20px; font-family: var(--mono);
+    }
+    .g-badge.empty { color: var(--muted); background: #1b1c21; border: 1px solid var(--line-hi); }
+    .g-badge.stale { color: #181818; background: var(--warn); }
+    .g-badge.ok { color: #0c3a1c; background: var(--ok); }
+    .g-badge.gen { color: var(--gold); background: rgba(212,175,55,.12); border: 1px solid rgba(212,175,55,.4); }
+    .g-toolbar .spacer { flex: 1; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 7px;
+      border: 1px solid var(--line-hi); background: #1b1c21; color: var(--text);
+      border-radius: 7px; padding: 6px 11px; font-size: 11.5px; cursor: pointer; font-family: var(--sans);
+    }
+    .btn:hover { border-color: var(--gold); color: var(--gold-2); }
+    .btn svg { width: 13px; height: 13px; }
+    .btn.primary { background: linear-gradient(180deg, var(--gold), #b18a1f); color: #171409; border-color: transparent; font-weight: 600; }
+    .btn.primary:hover { filter: brightness(1.08); color: #171409; }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+    /* estágio do grafo */
+    .g-stage { position: relative; flex: 1; min-height: 0; background: #090a0d; }
+    .g-stage iframe { width: 100%; height: 100%; border: 0; display: block; }
+
+    .g-empty {
+      position: absolute; inset: 0; display: grid; place-items: center;
+      text-align: center; padding: 24px;
+    }
+    .g-empty .ic {
+      width: 46px; height: 46px; border-radius: 12px; margin: 0 auto 12px;
+      background: linear-gradient(135deg, #1e2027, #14161b); border: 1px solid var(--line-hi);
+      display: grid; place-items: center; color: var(--dim);
+    }
+    .g-empty .ic svg { width: 22px; height: 22px; }
+    .g-empty .t { color: var(--text); font-weight: 600; }
+    .g-empty .s { color: var(--muted); font-size: 11.5px; margin: 6px auto 14px; max-width: 360px; line-height: 1.5; }
+
+    .g-loading { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+    .g-bar { width: 260px; height: 5px; border-radius: 4px; background: #1b1c21; overflow: hidden; border: 1px solid #26272b; }
+    .g-bar i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--gold), var(--gold-2)); transition: width .3s ease; }
+    .g-loading .lbl { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+    .g-stale-banner {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 8px 16px; background: rgba(229,179,61,.08); border-bottom: 1px solid rgba(229,179,61,.25); font-size: 11.5px; color: #ecc44a;
+    }
+    .g-stale-banner svg { width: 14px; height: 14px; }
+
+    /* rodapé */
+    .statusbar {
+      display: flex; align-items: center; gap: 14px; padding: 0 12px;
+      font-family: var(--mono); font-size: 10px; color: var(--dim);
+      border-top: 1px solid var(--line); background: var(--panel-2);
+    }
+    .statusbar .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
+    .statusbar .dot.on { background: var(--ok); box-shadow: 0 0 6px rgba(70,192,106,.8); }
+    .statusbar .sep { margin-left: auto; }
+
+    /* do iframe interno (amostra do grafo) */
+    .note { position: absolute; right: 12px; bottom: 12px; z-index: 5; font-size: 10px; color: var(--dim); background: rgba(10,11,14,.72); border: 1px solid var(--line); border-radius: 6px; padding: 5px 9px; font-family: var(--mono); }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <!-- titlebar -->
+    <header class="titlebar">
+      <div class="logo">π</div>
+      <span class="name">Pi Factory</span>
+      <span class="sub">/ projeto-demo · grafo E3</span>
+      <div class="spacer"></div>
+      <span class="chip gold">1.2M tokens</span>
+      <span class="chip" id="t-elapsed">00:42:10</span>
+    </header>
+
+    <div class="body">
+      <!-- rail -->
+      <nav class="rail">
+        <button class="nav" title="Chat da Thread">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </button>
+        <button class="nav active" title="Grafo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="7" r="2.5"/><circle cx="12" cy="18" r="2.5"/><circle cx="12" cy="11" r="2"/><path d="M7.5 7.5 10 10M13.5 12.5 11 16M16.5 9l-2.2 1.1M6.5 8 8 10.2"/></svg>
+        </button>
+        <button class="nav" title="Loop">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </button>
+      </nav>
+
+      <!-- vista -->
+      <main class="view">
+        <div class="view-header">
+          <h2><span id="h-dot" class="dot"></span> Grafo de Arquitetura</h2>
+          <span class="sub" style="color:var(--muted);font-size:11px">mapa do projeto que os agents consultam</span>
+          <div class="spacer"></div>
+          <span class="g-badge empty" id="badge">SEM GRAFO</span>
+        </div>
+
+        <div class="graph-wrap">
+          <!-- banner de stale (aparece quando há mudanças) -->
+          <div class="g-stale-banner" id="stale-banner" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span id="stale-text">Grafo desatualizado — 5 arquivos mudaram.</span>
+            <div class="spacer" style="flex:1"></div>
+            <button class="btn" id="btn-refresh-stale">Atualizar grafo</button>
+          </div>
+
+          <div class="g-toolbar">
+            <span class="g-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 4 4 5-6"/></svg>
+              graph.html
+            </span>
+            <span class="chip" style="font-size:10px;color:var(--dim)">via iframe · srcdoc</span>
+            <div class="spacer"></div>
+            <button class="btn" id="btn-sim" title="Demo: simula mudanças no código do projeto">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+              simular alterações
+            </button>
+            <button class="btn" id="btn-view">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              Ver grafo
+            </button>
+            <button class="btn" id="btn-gen">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>
+              Gerar grafo
+            </button>
+          </div>
+
+          <div class="g-stage" id="stage">
+            <!-- estado vazio -->
+            <div class="g-empty" id="state-empty">
+              <div>
+                <div class="ic">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="7" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M7.5 7.5 10.5 16M16.5 9 13.5 16"/></svg>
+                </div>
+                <div class="t">Nenhum grafo gerado ainda</div>
+                <div class="s">Rode o <b style="color:var(--text);font-family:var(--mono)">graphify .</b> no projeto para mapear a arquitetura. O gráfico é exibido num <b style="color:var(--text)">iframe</b> (gráfico pronto — não desenhamos na mão).</div>
+                <button class="btn primary" id="btn-gen-empty">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>
+                  Gerar grafo
+                </button>
+              </div>
+            </div>
+
+            <!-- estado gerando -->
+            <div class="g-loading" id="state-loading" hidden>
+              <span class="lbl">gerando grafo… (<span id="pct">0</span>%)</span>
+              <div class="g-bar"><i id="bar"></i></div>
+            </div>
+
+            <!-- estado com grafo (iframe) -->
+            <iframe id="frame" title="graph.html" style="display:none" srcdoc="">
+            </iframe>
+            <span class="note" id="note" style="display:none">amostra dentro de &lt;iframe srcdoc&gt; — no app, carrega o graph.html real</span>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <footer class="statusbar">
+      <span class="dot on" id="st-dot"></span> engine conectado
+      <span>branch: main</span>
+      <span>fase: —</span>
+      <span class="sep">v0.1.0 · gráfico v7 protótipo</span>
+    </footer>
+  </div>
+
+  <script>
+    // ---------- protótipo: máquina de estados do grafo ----------
+    const S = {
+      empty: document.getElementById('state-empty'),
+      loading: document.getElementById('state-loading'),
+      frame: document.getElementById('frame'),
+      note: document.getElementById('note'),
+      bar: document.getElementById('bar'),
+      pct: document.getElementById('pct'),
+      badge: document.getElementById('badge'),
+      stale: document.getElementById('stale-banner'),
+      btnView: document.getElementById('btn-view'),
+      btnGen: document.getElementById('btn-gen'),
+      btnGenEmpty: document.getElementById('btn-gen-empty'),
+      btnStale: document.getElementById('btn-refresh-stale'),
+      hdot: document.getElementById('h-dot'),
+      text: document.getElementById('stale-text'),
+    };
+    let stale = false;
+
+    // amostra de grafo (o que o graph.html renderizaria) — prova que o iframe aceita srcdoc
+    const SAMPLE_GRAPH = `<svg width="100%" height="100%" viewBox="0 0 640 360" xmlns="http://www.w3.org/2000/svg" style="background:#090a0d;font-family:JetBrains Mono,monospace">
+      <style> .edge{stroke:#33343a;stroke-width:1.4} .lab{fill:#8b8b90;font-size:10px} .big{filter:drop-shadow(0 0 10px rgba(212,175,55,.5))} </style>
+      <line class="edge" x1="120" y1="120" x2="300" y2="80"/>
+      <line class="edge" x1="300" y1="80" x2="520" y2="90"/>
+      <line class="edge" x1="300" y1="80" x2="400" y2="220"/>
+      <line class="edge" x1="120" y1="120" x2="150" y2="250"/>
+      <line class="edge" x1="400" y1="220" x2="520" y2="90"/>
+      <circle cx="120" cy="120" r="26" fill="#d4af37" opacity=".9" class="big"/>
+      <text class="lab" x="120" y="195">billing_service</text>
+      <g font-size="10" fill="#161616" text-anchor="middle" font-family="JetBrains Mono,monospace">
+        <text x="120" y="125">core</text>
+      </g>
+      <circle cx="300" cy="80" r="20" fill="#6aa3ff"/>
+      <text x="285" y="60" fill="#8b8b90" font-size="10">payments</text>
+      <circle cx="520" cy="90" r="18" fill="#7ee0a0"/>
+      <circle cx="400" cy="220" r="18" fill="#ffb35c"/>
+      <circle cx="150" cy="250" r="14" fill="#c58cff"/>
+      <text class="lab" x="400" y="260">stripe_client</text>
+      <text x="30" y="340" fill="#5c5c62" font-size="11">comunidades auto-detectadas · god node: billing_service · 2 hops “quem é o dono?” → payments-team</text>
+    </svg>`;
+
+    function setState(state) {
+      // badges / dots
+      const dot = document.getElementById('h-dot');
+      S.empty.hidden = state !== 'empty';
+      S.loading.hidden = state !== 'loading';
+      const showFrame = state === 'ready' || state === 'stale';
+      S.frame.style.display = showFrame ? 'block' : 'none';
+      S.note.style.display = showFrame ? 'block' : 'none';
+      S.btnView.disabled = !showFrame;
+      S.btnGen.disabled = state === 'loading';
+      S.btnGenEmpty.disabled = state === 'loading';
+      S.btnStale.disabled = state === 'loading';
+
+      if (state === 'empty') {
+        S.badge.textContent = 'SEM GRAFO';
+        S.badge.className = 'g-badge empty';
+        dot.className = 'dot';
+      } else if (state === 'loading') {
+        S.badge.textContent = 'GERANDO';
+        S.badge.className = 'g-badge gen';
+        dot.className = 'dot';
+      } else if (state === 'ready') {
+        S.badge.textContent = 'ATUALIZADO';
+        S.badge.className = 'g-badge ok';
+        dot.className = 'dot on';
+      } else { // stale
+        S.badge.textContent = 'DESATUALIZADO';
+        S.badge.className = 'g-badge stale';
+        dot.className = 'dot on';
+      }
+      // banner de stale
+      S.stale.hidden = state !== 'stale';
+    }
+
+    function loadFrame() {
+      if (!S.frame.getAttribute('srcdoc')) {
+        S.frame.srcdoc = SAMPLE_GRAPH;
+      }
+    }
+
+    function simulateGenerate() {
+      setState('loading');
+      let p = 0;
+      const t = setInterval(() => {
+        p += 7 + Math.random() * 14;
+        if (p >= 100) {
+          p = 100; clearInterval(t);
+          loadFrame();
+          // após gerar, ficamos "atualizados"; quem quiser testar stale, usa o toggle
+          stale = false;
+          setState('ready');
+        }
+        S.pct.textContent = Math.floor(p);
+        S.bar.style.width = Math.floor(p) + '%';
+      }, 120);
+    }
+
+    // ---- gatilhos ----
+    S.btnGen.addEventListener('click', () => simulateGenerate());
+    S.btnGenEmpty.addEventListener('click', () => simulateGenerate());
+    S.btnStale.addEventListener('click', () => simulateGenerate());
+    document.getElementById('btn-sim').addEventListener('click', () => window.__demoStale());
+
+    // "Ver grafo" alterna foco (no protótipo, só reforça que o iframe está lá)
+    S.btnView.addEventListener('click', () => {
+      S.frame.style.outline = stale ? '2px solid rgba(229,179,61,.6)' : '2px solid rgba(70,192,106,.5)';
+      setTimeout(() => (S.frame.style.outline = ''), 900);
+    });
+
+    // Demo de stageração: chega "stale" quando nada é interagido por um instante,
+    // simulando mudanças no código do projeto.
+    window.__demoStale = () => {
+      stale = true;
+      S.text.textContent = `Grafo desatualizado — ${5 + Math.floor(Math.random() * 9)} arquivos mudaram.`;
+      setState('stale');
+    };
+
+    // iniciar no estado vazio; oferece botão de demo
+    setState('empty');
+  </script>
+</body>
+</html>

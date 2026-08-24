@@ -5,11 +5,11 @@
   --font-sans: "JetBrainsMono Nerd Font Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --font-mono: "JetBrainsMono Nerd Font Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
-  --color-surface: #0f1115;
-  --color-panel: #171a21;
-  --color-edge: #262b36;
-  --color-accent: #f59e0b;
-  --color-accent-dim: #b45309;
+  --color-surface: #111111;
+  --color-panel: #1a1a1a;
+  --color-edge: #2c2c2c;
+  --color-accent: #d4af37;
+  --color-accent-dim: #b8962e;
   --color-muted: #7a7a7a;
 }
 

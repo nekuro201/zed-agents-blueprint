@@ -10,9 +10,24 @@ import { z } from "zod";
  * afetar o orquestrador (defense-in-depth no transporte, não no parsing de LLM).
  */
 
+/**
+ * Modelos por papel de agente (override opcional vindo da UI — ModelSettingsModal).
+ * Chaves ausentes caem no default do engine (PI_DEFAULT_MODEL / PI_CRISIS_MODEL).
+ */
+export const AgentModelsSchema = z.object({
+  planejador: z.string().optional(),
+  leitor: z.string().optional(),
+  techlead: z.string().optional(),
+  coder: z.string().optional(),
+  testador: z.string().optional(),
+  qa: z.string().optional(),
+  crise: z.string().optional(),
+});
+export type AgentModels = z.infer<typeof AgentModelsSchema>;
+
 export const EngineCommandSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("start"), projectDir: z.string().min(1) }),
-  z.object({ type: z.literal("plan"), projectDir: z.string().min(1), prompt: z.string().min(1) }),
+  z.object({ type: z.literal("start"), projectDir: z.string().min(1), models: AgentModelsSchema.optional() }),
+  z.object({ type: z.literal("plan"), projectDir: z.string().min(1), prompt: z.string().min(1), models: AgentModelsSchema.optional() }),
   z.object({ type: z.literal("pause") }),
   z.object({ type: z.literal("resume") }),
   z.object({ type: z.literal("inject"), text: z.string().min(1) }),
@@ -36,6 +51,7 @@ export type AgentRole =
   | "leitor" // próxima fase do PLAN.md (structured output / fallback)
   | "techlead" // gera TODO_BATCH.md
   | "coder" // executa o lote
+  | "testador" // verifica a fase (testes ou entregáveis) e escreve test-result.json
   | "qa" // julgamento TDD (structured output)
   | "crise"; // modelo sênior no protocolo de crise
 

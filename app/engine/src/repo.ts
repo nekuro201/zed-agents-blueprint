@@ -67,9 +67,12 @@ export function parsePlan(plan: string): PhaseInfo[] {
   return phases;
 }
 
-/** Primeira fase pendente (`[ ]`) ou null se todas concluídas. */
+/**
+ * Primeira fase pendente. `[ ]` (pendente) e `[-]` (em andamento, marcado pelo
+ * techlead/testador) são consideradas pendentes. Null se todas concluídas.
+ */
 export function nextPendingPhase(plan: string): PhaseInfo | null {
-  return parsePlan(plan).find((p) => p.marker === " ") ?? null;
+  return parsePlan(plan).find((p) => p.marker === " " || p.marker === "-") ?? null;
 }
 
 /** Soma de progresso: fases com `[x]` / total de fases. */
@@ -80,9 +83,9 @@ export function planProgress(plan: string): { total: number; done: number } {
 }
 
 /**
- * Marca a fase localmente como concluída: troca o marcador `[ ]` -> `[x]`
+ * Marca a fase localmente como concluída: troca o marcador `[ ]` ou `[-]` -> `[x]`
  * no primeiro título cujo texto corresponda a `fase`. Se o texto não bater
- * (título levemente diferente), aplica na primeira fase pendente encontrada.
+ * (título levemente diferente), aplica na primeira fase não-concluída encontrada.
  * Determinístico — a edição de estado NÃO é delegada ao LLM.
  */
 export function markPhaseDone(plan: string, fase: string): string {
@@ -96,17 +99,17 @@ export function markPhaseDone(plan: string, fase: string): string {
     const m = FASE_RE.exec(lines[i]);
     if (!m) continue;
     const ehAlvo = new RegExp(`^${buscarExato}\\s*$`).test(m[3].trim());
-    if (m[2] === " " && (fase === "" || ehAlvo)) {
-      lines[i] = lines[i].replace(/\[ \]/, "[x]");
+    if ((m[2] === " " || m[2] === "-") && (fase === "" || ehAlvo)) {
+      lines[i] = lines[i].replace(/\[[ -]\]/, "[x]");
       applied = true;
     }
   }
 
-  // Fallback: primeira fase pendente se nada bateu.
+  // Fallback: primeira fase não-concluída ([ ] ou [-]) se nada bateu.
   if (!applied) {
     for (let i = 0; i < lines.length; i++) {
-      if (/^#{2,3}\s+\[ \]/.test(lines[i])) {
-        lines[i] = lines[i].replace(/\[ \]/, "[x]");
+      if (/^#{2,3}\s+\[[ -]\]/.test(lines[i])) {
+        lines[i] = lines[i].replace(/\[[ -]\]/, "[x]");
         applied = true;
         break;
       }

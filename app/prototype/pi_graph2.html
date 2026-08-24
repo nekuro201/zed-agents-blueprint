@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pi Agent — Grafo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-0: #111111;
+      --bg-1: #1a1a1a;
+      --bg-2: #212121;
+      --bg-3: #2a2a2a;
+      --line: #2c2c2c;
+      --line-hi: #3d3d3d;
+      --text: #f2f2f2;
+      --text-2: #b3b3b3;
+      --text-3: #7a7a7a;
+      --gold: #d4af37;
+      --gold-2: #f0d060;
+      --gold-dim: rgba(212, 175, 55, 0.12);
+      --gold-glow: rgba(212, 175, 55, 0.28);
+      --ok: #6bcb8a;
+      --warn: #e0a54a;
+      --danger: #e85d5d;
+      --title: 38px;
+      --rail: 48px;
+      --status: 28px;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+      background: var(--bg-0);
+      color: var(--text-2);
+      overflow: hidden;
+      font-size: 13px;
+      letter-spacing: -0.01em;
+    }
+    button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; }
+    .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+
+    .app {
+      height: 100%;
+      display: grid;
+      grid-template-rows: var(--title) 1fr var(--status);
+      background:
+        radial-gradient(1200px 480px at 12% -10%, rgba(212,175,55,0.06), transparent 55%),
+        var(--bg-0);
+    }
+
+    .titlebar {
+      display: flex; align-items: center; gap: 12px;
+      padding: 0 12px 0 14px;
+      background: linear-gradient(180deg, #1e1e1e, var(--bg-1));
+      border-bottom: 1px solid var(--line);
+      -webkit-app-region: drag; user-select: none;
+    }
+    .titlebar > * { -webkit-app-region: no-drag; }
+    .traffic { display: flex; gap: 7px; }
+    .traffic i {
+      width: 11px; height: 11px; border-radius: 50%; display: block;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+    }
+    .traffic .c { background: #ff5f57; }
+    .traffic .m { background: #febc2e; }
+    .traffic .x { background: #28c840; }
+    .brand {
+      display: flex; align-items: center; gap: 8px;
+      color: var(--text); font-weight: 600; font-size: 12.5px;
+    }
+    .mark {
+      width: 18px; height: 18px; border-radius: 5px;
+      display: grid; place-items: center;
+      background: linear-gradient(160deg, var(--gold-2), var(--gold));
+      color: #1a1a1a; font-size: 9px;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 0 16px var(--gold-glow);
+    }
+    .muted { color: var(--text-3); font-weight: 500; }
+    .spacer { flex: 1; }
+    .chip {
+      display: inline-flex; align-items: center; gap: 7px;
+      height: 24px; padding: 0 10px; border-radius: 999px;
+      background: var(--bg-2); border: 1px solid var(--line-hi);
+      color: var(--text-2); font-size: 11px;
+    }
+    .chip b { color: var(--text); font-weight: 600; }
+    .chip.gold { border-color: rgba(212,175,55,0.35); background: var(--gold-dim); color: var(--gold-2); }
+    .chip.gold i { color: var(--gold); }
+    .kbtn {
+      height: 24px; padding: 0 8px; border-radius: 6px;
+      border: 1px solid var(--line-hi); background: var(--bg-2);
+      color: var(--text-3); font-size: 11px;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .kbtn:hover { color: var(--text); border-color: var(--gold); background: var(--gold-dim); }
+    .user { display: flex; align-items: center; gap: 7px; color: var(--text-2); font-size: 12px; }
+    .avatar {
+      width: 20px; height: 20px; border-radius: 50%;
+      background: linear-gradient(160deg, #4a4a4a, #2a2a2a);
+      border: 1px solid var(--line-hi);
+      display: grid; place-items: center; font-size: 9px; color: var(--gold);
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: var(--rail) minmax(0, 1fr);
+      min-height: 0;
+    }
+
+    .rail {
+      background: #161616; border-right: 1px solid var(--line);
+      display: flex; flex-direction: column; align-items: center;
+      padding: 8px 0 10px; gap: 4px;
+    }
+    .rail-btn {
+      width: 34px; height: 34px; border-radius: 8px;
+      color: var(--text-3); position: relative;
+      display: grid; place-items: center;
+    }
+    .rail-btn:hover { color: var(--text); background: var(--bg-3); }
+    .rail-btn.active { color: var(--gold); background: var(--gold-dim); }
+    .rail-btn.active::before {
+      content: ""; position: absolute; left: -7px; top: 8px; bottom: 8px; width: 2px;
+      background: var(--gold); border-radius: 2px;
+      box-shadow: 0 0 8px var(--gold-glow);
+    }
+    .rail .push { margin-top: auto; }
+
+    .btn {
+      width: 100%; height: 34px; border-radius: 7px;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      font-weight: 600; font-size: 12.5px;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn-gold {
+      background: linear-gradient(180deg, #e2c25a, var(--gold));
+      color: #1a1a1a;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 8px 22px rgba(212,175,55,0.18);
+    }
+    .btn-ghost {
+      background: var(--bg-2); color: var(--text-3);
+      border: 1px solid var(--line-hi);
+    }
+    .btn-ghost:hover { color: var(--text); border-color: var(--gold); }
+
+    .main { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--bg-0); }
+    .view-bar {
+      min-height: 44px; padding: 8px 14px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      border-bottom: 1px solid var(--line); background: #171717;
+    }
+    .view-bar h3 { color: var(--text); font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .view-bar h3 i { color: var(--gold); }
+    .view-bar p { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+    .badge {
+      height: 22px; padding: 0 9px; border-radius: 999px;
+      display: inline-flex; align-items: center;
+      font-size: 10px; font-weight: 700; letter-spacing: .04em;
+      font-family: "JetBrains Mono", monospace;
+    }
+    .badge.empty { color: var(--text-3); background: var(--bg-2); border: 1px solid var(--line-hi); }
+    .badge.gen { color: var(--gold-2); background: var(--gold-dim); border: 1px solid rgba(212,175,55,0.35); }
+    .badge.ok { color: #14301d; background: var(--ok); }
+    .badge.stale { color: #2a1c08; background: var(--warn); }
+
+    .stale-banner {
+      display: none; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 8px 14px;
+      background: rgba(224,165,74,0.08);
+      border-bottom: 1px solid rgba(224,165,74,0.28);
+      color: #ecc44a; font-size: 12px;
+    }
+    .stale-banner.on { display: flex; }
+    .stale-banner .btn { width: auto; height: 28px; padding: 0 10px; margin: 0; }
+
+    .g-toolbar {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--line);
+      background: #161616;
+    }
+    .src { display: flex; align-items: center; gap: 8px; color: var(--text-2); font-size: 12px; }
+    .src i { color: var(--gold); }
+    .tool {
+      height: 30px; padding: 0 10px; border-radius: 7px;
+      display: inline-flex; align-items: center; gap: 7px;
+      background: var(--bg-2); border: 1px solid var(--line-hi);
+      color: var(--text-2); font-size: 12px;
+    }
+    .tool:hover { border-color: var(--gold); color: var(--text); background: var(--gold-dim); }
+    .tool:disabled { opacity: .4; cursor: not-allowed; }
+    .tool.primary {
+      background: linear-gradient(180deg, #e2c25a, var(--gold));
+      color: #1a1a1a; border-color: transparent; font-weight: 600;
+    }
+
+    .stage { position: relative; flex: 1; min-height: 0; background: #121212; }
+    .stage iframe { width: 100%; height: 100%; border: 0; display: none; background: #0f0f1a; }
+    .stage iframe.on { display: block; }
+
+    .empty, .loading {
+      position: absolute; inset: 0;
+      display: none; place-items: center;
+      text-align: center; padding: 24px;
+    }
+    .empty.on, .loading.on { display: grid; }
+    .empty .ic {
+      width: 48px; height: 48px; border-radius: 12px; margin: 0 auto 12px;
+      display: grid; place-items: center;
+      background: var(--bg-2); border: 1px solid var(--line-hi);
+      color: var(--gold); font-size: 18px;
+    }
+    .empty .t { color: var(--text); font-weight: 600; font-size: 14px; }
+    .empty .s { color: var(--text-3); font-size: 12px; margin: 6px auto 16px; max-width: 380px; line-height: 1.5; }
+    .empty .btn { width: auto; padding: 0 16px; margin: 0 auto; }
+    .g-bar {
+      width: 260px; height: 5px; border-radius: 4px;
+      background: #1b1c21; overflow: hidden; border: 1px solid #26272b; margin: 0 auto;
+    }
+    .g-bar i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--gold), var(--gold-2)); transition: width .25s ease; }
+    .loading .lbl { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--text-3); margin-bottom: 12px; }
+    .note {
+      position: absolute; right: 12px; bottom: 12px; z-index: 2;
+      font-size: 10px; color: var(--text-3);
+      background: rgba(17,17,17,.82);
+      border: 1px solid var(--line);
+      border-radius: 6px; padding: 5px 9px;
+      font-family: "JetBrains Mono", monospace;
+      pointer-events: none;
+    }
+
+    .statusbar {
+      display: flex; align-items: center; gap: 14px;
+      padding: 0 12px; background: #141414; border-top: 1px solid var(--line);
+      font-size: 11px; color: var(--text-3);
+    }
+    .statusbar .live { display: flex; align-items: center; gap: 6px; }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: #6a6a6a; }
+    .dot.on { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+    .dot.run { background: var(--gold); box-shadow: 0 0 8px var(--gold); animation: pulse 1.4s infinite; }
+    .statusbar .sep { width: 1px; height: 12px; background: var(--line-hi); }
+    .statusbar .grow { margin-left: auto; }
+    @keyframes pulse { 50% { opacity: .45; } }
+    @keyframes in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+    .overlay {
+      position: fixed; inset: 0; z-index: 50;
+      background: rgba(10,10,10,0.62); backdrop-filter: blur(8px);
+      display: none; place-items: center;
+    }
+    .overlay.on { display: grid; }
+    .modal {
+      width: min(560px, calc(100vw - 32px));
+      background: var(--bg-2); border: 1px solid var(--line-hi);
+      border-radius: 12px; box-shadow: 0 30px 80px rgba(0,0,0,.55);
+      overflow: hidden; animation: in .2s var(--ease);
+    }
+    .palette input {
+      width: 100%; height: 46px; border: 0; outline: none;
+      background: transparent; color: var(--text); padding: 0 16px;
+      border-bottom: 1px solid var(--line); font-size: 14px;
+    }
+    .plist { padding: 8px; }
+    .pcmd {
+      width: 100%; display: flex; align-items: center; gap: 10px;
+      padding: 9px 10px; border-radius: 7px; text-align: left; color: var(--text-2);
+    }
+    .pcmd:hover, .pcmd.hot { background: var(--gold-dim); color: var(--text); }
+    .pcmd kbd {
+      margin-left: auto; font-size: 10px; color: var(--text-3);
+      border: 1px solid var(--line-hi); padding: 1px 5px; border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="titlebar">
+      <div class="traffic" aria-hidden="true"><i class="c"></i><i class="m"></i><i class="x"></i></div>
+      <div class="brand"><span class="mark"><i class="fa-solid fa-layer-group"></i></span> Pi Agent <span class="muted">/ workspace</span></div>
+      <div class="spacer"></div>
+      <button class="kbtn" onclick="openPalette()"><span class="mono">⌘K</span></button>
+      <div class="chip gold"><i class="fa-solid fa-coins"></i><span>Global</span> <b>145.2k</b></div>
+      <div class="user"><span class="avatar">A</span> Abe</div>
+    </header>
+
+    <div class="shell">
+      <nav class="rail">
+        <button class="rail-btn" title="Chat Global" onclick="goV7()"><i class="fa-solid fa-globe"></i></button>
+        <button class="rail-btn" title="Chat da Thread" onclick="goV7()"><i class="fa-solid fa-comments"></i></button>
+        <button class="rail-btn active" title="Grafo"><i class="fa-solid fa-diagram-project"></i></button>
+        <button class="rail-btn" title="Loop" onclick="goLoop()"><i class="fa-solid fa-bolt"></i></button>
+        <button class="rail-btn" title="Explorer" onclick="goV7()"><i class="fa-solid fa-folder-tree"></i></button>
+        <div class="push"></div>
+        <button class="rail-btn" title="Configurações" onclick="goV7()"><i class="fa-solid fa-gear"></i></button>
+      </nav>
+
+      <section class="main">
+        <div class="view-bar">
+          <div>
+            <h3><i class="fa-solid fa-diagram-project"></i> Grafo de Arquitetura</h3>
+            <p>Visual do Graphify embutido. Busca, nós e comunidades ficam no iframe.</p>
+          </div>
+          <span class="badge empty" id="badge">SEM GRAFO</span>
+        </div>
+
+        <div class="stale-banner" id="stale-banner">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <span id="stale-text">Grafo desatualizado — arquivos mudaram.</span>
+          <div class="spacer"></div>
+          <button class="btn btn-ghost" onclick="generateGraph()">Atualizar grafo</button>
+        </div>
+
+        <div class="g-toolbar">
+          <span class="src"><i class="fa-solid fa-file-code"></i> <span class="mono">graphify-out/graph.html</span></span>
+          <span class="chip" style="height:22px">iframe</span>
+          <div class="spacer"></div>
+          <button class="tool" id="btn-view" onclick="reloadFrame()" disabled><i class="fa-solid fa-eye"></i> Ver grafo</button>
+          <button class="tool" id="btn-update" onclick="generateGraph()" disabled><i class="fa-solid fa-arrows-rotate"></i> Atualizar</button>
+          <button class="tool" id="btn-sim" onclick="simulateStale()" disabled><i class="fa-solid fa-code-compare"></i> Simular alterações</button>
+          <button class="tool" id="btn-ext" onclick="openExternal()" disabled><i class="fa-solid fa-arrow-up-right-from-square"></i> Nova aba</button>
+          <button class="tool primary" id="btn-gen" onclick="generateGraph()"><i class="fa-solid fa-rotate"></i> Gerar</button>
+        </div>
+
+        <div class="stage">
+          <div class="empty on" id="state-empty">
+            <div>
+              <div class="ic"><i class="fa-solid fa-diagram-project"></i></div>
+              <div class="t">Nenhum grafo gerado ainda</div>
+              <div class="s">Rode <b class="mono" style="color:var(--text)">graphify .</b> no projeto. O visual entra neste iframe — o app só controla gerar, atualizar e o estado.</div>
+              <button class="btn btn-gold" onclick="generateGraph()"><i class="fa-solid fa-rotate"></i> Gerar grafo</button>
+            </div>
+          </div>
+          <div class="loading" id="state-loading">
+            <div>
+              <div class="lbl">gerando grafo… (<span id="pct">0</span>%)</div>
+              <div class="g-bar"><i id="bar"></i></div>
+            </div>
+          </div>
+          <iframe id="frame" title="graph.html"></iframe>
+          <span class="note" id="note" hidden>iframe · graphify-out/graph.html real</span>
+        </div>
+      </section>
+    </div>
+
+    <footer class="statusbar">
+      <span class="live"><span class="dot on" id="motor-dot"></span> <span id="motor-label">Motor conectado</span></span>
+      <span class="sep"></span>
+      <span class="mono">feature/auth-ui</span>
+      <span class="sep"></span>
+      <span id="status-phase">grafo · aguardando geração</span>
+      <span class="grow"></span>
+      <span class="mono" id="status-meta">sem grafo</span>
+      <span class="sep"></span>
+      <span class="mono">Pi · graph2</span>
+    </footer>
+  </div>
+
+  <div class="overlay" id="palette" onclick="if(event.target===this)closePalette()">
+    <div class="modal palette">
+      <input id="palette-input" placeholder="Buscar comando…" oninput="filterPalette(this.value)" />
+      <div class="plist" id="plist"></div>
+    </div>
+  </div>
+
+  <script>
+    const GRAPH_SRC = '../example/linear-tools/graphify-out/graph.html';
+    const V7 = './pi_agent_manager_v7.html';
+    const state = { status: 'empty' };
+
+    const cmds = [
+      { k: 'Chat da thread', fn: goV7, keys: '⌘2' },
+      { k: 'Gerar grafo', fn: generateGraph, keys: '⌘G' },
+      { k: 'Iniciar loop', fn: goLoop, keys: '⌘↵' },
+      { k: 'Abrir loop', fn: goLoop, keys: '⌘3' },
+      { k: 'Ver grafo', fn: reloadFrame, keys: '⌘V' }
+    ];
+
+    function $(id) { return document.getElementById(id); }
+    function goV7() { location.href = V7; }
+    function goLoop() { location.href = V7 + '#loop'; }
+
+    function setStatus(s) {
+      state.status = s;
+      const ready = s === 'ready' || s === 'stale';
+      $('state-empty').classList.toggle('on', s === 'empty');
+      $('state-loading').classList.toggle('on', s === 'loading');
+      $('frame').classList.toggle('on', ready);
+      $('note').hidden = !ready;
+      $('stale-banner').classList.toggle('on', s === 'stale');
+      $('btn-gen').disabled = s === 'loading';
+      $('btn-update').disabled = !ready;
+      $('btn-sim').disabled = !ready;
+      $('btn-view').disabled = !ready;
+      $('btn-ext').disabled = !ready;
+
+      const badge = $('badge');
+      const dot = $('motor-dot');
+      const lab = $('motor-label');
+      const phase = $('status-phase');
+
+      if (s === 'empty') {
+        badge.className = 'badge empty'; badge.textContent = 'SEM GRAFO';
+        dot.className = 'dot on'; lab.textContent = 'Motor conectado';
+        phase.textContent = 'grafo · aguardando geração';
+        $('status-meta').textContent = 'sem grafo';
+      } else if (s === 'loading') {
+        badge.className = 'badge gen'; badge.textContent = 'GERANDO';
+        dot.className = 'dot run'; lab.textContent = 'graphify em execução';
+        phase.textContent = 'grafo · mapeando projeto';
+      } else if (s === 'ready') {
+        badge.className = 'badge ok'; badge.textContent = 'ATUALIZADO';
+        dot.className = 'dot on'; lab.textContent = 'Motor conectado';
+        phase.textContent = 'grafo · agents podem consultar';
+        $('status-meta').textContent = 'graph.html carregado';
+      } else {
+        badge.className = 'badge stale'; badge.textContent = 'DESATUALIZADO';
+        dot.className = 'dot on'; lab.textContent = 'Motor conectado';
+        phase.textContent = 'grafo · precisa atualizar';
+      }
+    }
+
+    function loadFrame() { $('frame').src = GRAPH_SRC; }
+
+    function generateGraph() {
+      if (state.status === 'loading') return;
+      setStatus('loading');
+      $('frame').removeAttribute('src');
+      let p = 0;
+      const t = setInterval(() => {
+        p += 7 + Math.random() * 11;
+        if (p >= 100) {
+          p = 100; clearInterval(t);
+          loadFrame();
+          setStatus('ready');
+        }
+        $('pct').textContent = Math.floor(p);
+        $('bar').style.width = Math.floor(p) + '%';
+      }, 90);
+    }
+
+    function reloadFrame() {
+      if (state.status !== 'ready' && state.status !== 'stale') return;
+      loadFrame();
+    }
+
+    function openExternal() { window.open(GRAPH_SRC, '_blank'); }
+
+    function simulateStale() {
+      if (state.status !== 'ready' && state.status !== 'stale') return;
+      const n = 3 + Math.floor(Math.random() * 8);
+      $('stale-text').textContent = `Grafo desatualizado — ${n} arquivos mudaram desde a última geração.`;
+      setStatus('stale');
+    }
+
+    function openPalette() {
+      renderPalette('');
+      $('palette').classList.add('on');
+      $('palette-input').value = '';
+      $('palette-input').focus();
+    }
+    function closePalette() { $('palette').classList.remove('on'); }
+    function renderPalette(q) {
+      const list = cmds.filter(c => c.k.toLowerCase().includes(q.toLowerCase()));
+      $('plist').innerHTML = list.map((c, i) =>
+        `<button class="pcmd ${i===0?'hot':''}" onclick="cmds.find(x=>x.k==='${c.k}').fn();closePalette()"><i class="fa-solid fa-chevron-right"></i>${c.k}<kbd>${c.keys}</kbd></button>`
+      ).join('') || '<div class="pcmd">Nenhum comando</div>';
+    }
+    function filterPalette(q) { renderPalette(q); }
+
+    document.addEventListener('keydown', (e) => {
+      const meta = e.metaKey || e.ctrlKey;
+      if (meta && e.key.toLowerCase() === 'k') { e.preventDefault(); openPalette(); }
+      if (meta && e.key.toLowerCase() === 'g') { e.preventDefault(); generateGraph(); }
+      if (meta && e.key === '2') { e.preventDefault(); goV7(); }
+      if (meta && e.key === '3') { e.preventDefault(); goLoop(); }
+      if (e.key === 'Escape') closePalette();
+    });
+
+    setStatus('empty');
+  </script>
+</body>
+</html>

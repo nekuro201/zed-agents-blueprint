@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pi Agent — V7</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-0: #111111;
+      --bg-1: #1a1a1a;
+      --bg-2: #212121;
+      --bg-3: #2a2a2a;
+      --bg-4: #333333;
+      --line: #2c2c2c;
+      --line-hi: #3d3d3d;
+      --text: #f2f2f2;
+      --text-2: #b3b3b3;
+      --text-3: #7a7a7a;
+      --gold: #d4af37;
+      --gold-2: #f0d060;
+      --gold-dim: rgba(212, 175, 55, 0.12);
+      --gold-glow: rgba(212, 175, 55, 0.28);
+      --ok: #6bcb8a;
+      --warn: #e0a54a;
+      --danger: #e85d5d;
+      --info: #8eb4d4;
+      --lead: #c4b5a0;
+      --coder: #9bb8d4;
+      --qa: #d4a06a;
+      --title: 38px;
+      --rail: 48px;
+      --status: 28px;
+      --side: 248px;
+      --explorer: 268px;
+      --radius: 8px;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+      background: var(--bg-0);
+      color: var(--text-2);
+      overflow: hidden;
+      font-size: 13px;
+      letter-spacing: -0.01em;
+    }
+    button, select, textarea { font: inherit; color: inherit; }
+    button { cursor: pointer; background: none; border: 0; }
+    .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+    ::-webkit-scrollbar-thumb:hover { background: #4a4a4a; background-clip: padding-box; }
+
+    .app {
+      height: 100%;
+      display: grid;
+      grid-template-rows: var(--title) 1fr var(--status);
+      background:
+        radial-gradient(1200px 480px at 12% -10%, rgba(212,175,55,0.06), transparent 55%),
+        var(--bg-0);
+    }
+
+    /* ===== Titlebar ===== */
+    .titlebar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 12px 0 14px;
+      background: linear-gradient(180deg, #1e1e1e, var(--bg-1));
+      border-bottom: 1px solid var(--line);
+      -webkit-app-region: drag;
+      user-select: none;
+    }
+    .titlebar > * { -webkit-app-region: no-drag; }
+    .traffic { display: flex; gap: 7px; }
+    .traffic i {
+      width: 11px; height: 11px; border-radius: 50%;
+      display: block;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+    }
+    .traffic .c { background: #ff5f57; }
+    .traffic .m { background: #febc2e; }
+    .traffic .x { background: #28c840; }
+    .brand {
+      display: flex; align-items: center; gap: 8px;
+      color: var(--text); font-weight: 600; font-size: 12.5px;
+    }
+    .mark {
+      width: 18px; height: 18px; border-radius: 5px;
+      display: grid; place-items: center;
+      background: linear-gradient(160deg, var(--gold-2), var(--gold));
+      color: #1a1a1a; font-size: 9px;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 0 16px var(--gold-glow);
+    }
+    .muted { color: var(--text-3); font-weight: 500; }
+    .spacer { flex: 1; }
+    .chip {
+      display: inline-flex; align-items: center; gap: 7px;
+      height: 24px; padding: 0 10px; border-radius: 999px;
+      background: var(--bg-2); border: 1px solid var(--line-hi);
+      color: var(--text-2); font-size: 11px;
+    }
+    .chip b { color: var(--text); font-weight: 600; }
+    .chip.gold { border-color: rgba(212,175,55,0.35); background: var(--gold-dim); color: var(--gold-2); }
+    .chip.gold i { color: var(--gold); }
+    .kbtn {
+      height: 24px; padding: 0 8px; border-radius: 6px;
+      border: 1px solid var(--line-hi); background: var(--bg-2);
+      color: var(--text-3); font-size: 11px;
+      transition: border-color .15s var(--ease), color .15s var(--ease), background .15s var(--ease);
+    }
+    .kbtn:hover { color: var(--text); border-color: var(--gold); background: var(--gold-dim); }
+    .user { display: flex; align-items: center; gap: 7px; color: var(--text-2); font-size: 12px; }
+    .avatar {
+      width: 20px; height: 20px; border-radius: 50%;
+      background: linear-gradient(160deg, #4a4a4a, #2a2a2a);
+      border: 1px solid var(--line-hi);
+      display: grid; place-items: center; font-size: 9px; color: var(--gold);
+    }
+
+    /* ===== Shell ===== */
+    .shell {
+      display: grid;
+      grid-template-columns: var(--rail) minmax(0, 1fr) var(--explorer);
+      min-height: 0;
+    }
+    .shell.no-exp { grid-template-columns: var(--rail) minmax(0, 1fr) 0; }
+
+    /* ===== Rail ===== */
+    .rail {
+      background: #161616;
+      border-right: 1px solid var(--line);
+      display: flex; flex-direction: column; align-items: center;
+      padding: 8px 0 10px;
+      gap: 4px;
+    }
+    .rail-btn {
+      width: 34px; height: 34px; border-radius: 8px;
+      color: var(--text-3); position: relative;
+      display: grid; place-items: center;
+      transition: color .15s var(--ease), background .15s var(--ease);
+    }
+    .rail-btn:hover { color: var(--text); background: var(--bg-3); }
+    .rail-btn.active { color: var(--gold); background: var(--gold-dim); }
+    .rail-btn.active::before {
+      content: ""; position: absolute; left: -7px; top: 8px; bottom: 8px; width: 2px;
+      background: var(--gold); border-radius: 2px;
+      box-shadow: 0 0 8px var(--gold-glow);
+    }
+    .rail-btn .dot {
+      position: absolute; top: 6px; right: 6px;
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--gold); box-shadow: 0 0 8px var(--gold);
+    }
+    .rail .push { margin-top: auto; }
+
+    /* ===== Explorer ===== */
+    .explorer {
+      background: var(--bg-1);
+      min-width: 0; min-height: 0;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      transition: opacity .2s var(--ease);
+      border-left: 1px solid var(--line);
+    }
+    .shell.no-exp .explorer { opacity: 0; pointer-events: none; }
+
+    .pane-head {
+      height: 40px; padding: 0 12px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+      background: #1c1c1c;
+    }
+    .pane-head .label {
+      font-size: 10px; font-weight: 700; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--text-3);
+    }
+    .icon-btn {
+      width: 26px; height: 26px; border-radius: 6px; color: var(--text-3);
+      display: grid; place-items: center;
+      transition: color .15s, background .15s;
+    }
+    .icon-btn:hover { color: var(--gold-2); background: var(--gold-dim); }
+
+    .ws-card {
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(212,175,55,0.04), transparent);
+    }
+    .ws-card .tiny { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); margin-bottom: 6px; }
+    .ws-card .row { display: flex; align-items: center; gap: 8px; }
+    .ws-card h2 { font-size: 13px; color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ws-card h2 i { color: var(--gold); margin-right: 6px; }
+
+    .nav { padding: 10px 8px; display: flex; flex-direction: column; gap: 2px; }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px; border-radius: 7px;
+      color: var(--text-2); text-align: left; width: 100%;
+      border: 1px solid transparent;
+      transition: background .15s, color .15s, border-color .15s;
+    }
+    .nav-item i { width: 14px; text-align: center; color: var(--text-3); }
+    .nav-item:hover { background: var(--bg-3); color: var(--text); }
+    .nav-item.active {
+      background: var(--gold-dim);
+      border-color: rgba(212,175,55,0.22);
+      color: var(--text);
+    }
+    .nav-item.active i { color: var(--gold); }
+    .tag {
+      margin-left: auto; font-size: 9px; font-weight: 600;
+      padding: 2px 6px; border-radius: 999px;
+      background: rgba(212,175,55,0.16); color: var(--gold-2);
+    }
+
+    .sec { padding: 6px 12px 12px; }
+    .sec-title {
+      font-size: 10px; font-weight: 700; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--text-3); margin: 8px 0 8px;
+    }
+    .btn {
+      width: 100%; height: 34px; border-radius: 7px;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      font-weight: 600; font-size: 12.5px;
+      transition: transform .12s var(--ease), box-shadow .2s, background .15s, opacity .15s;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn-gold {
+      background: linear-gradient(180deg, #e2c25a, var(--gold));
+      color: #1a1a1a;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 8px 22px rgba(212,175,55,0.18);
+    }
+    .btn-gold:hover { box-shadow: 0 0 0 1px rgba(255,255,255,0.12), 0 10px 28px rgba(212,175,55,0.28); }
+    .btn-ghost {
+      margin-top: 6px;
+      background: var(--bg-2); color: var(--text-3);
+      border: 1px solid var(--line-hi);
+    }
+    .btn-ghost:disabled { opacity: .4; cursor: not-allowed; }
+    .btn-danger {
+      margin-top: 6px;
+      background: rgba(232,93,93,0.12); color: #ffb4b4;
+      border: 1px solid rgba(232,93,93,0.35);
+      box-shadow: 0 0 18px rgba(232,93,93,0.12);
+    }
+
+    .roster { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .roster-card {
+      padding: 8px 9px;
+      border: 1px solid var(--line); border-radius: 8px;
+      background: #171717;
+    }
+    .roster-card .who {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 11.5px; font-weight: 600; color: var(--text);
+      margin-bottom: 6px; padding-bottom: 0; border: 0;
+    }
+    .roster-card .who i { width: 14px; text-align: center; color: var(--gold); font-size: 11px; }
+    .roster-card .kv { display: grid; gap: 3px; }
+    .roster-card .line {
+      display: grid; grid-template-columns: 58px 1fr; gap: 6px;
+      font-size: 10.5px; color: var(--text-3);
+    }
+    .roster-card .line b {
+      color: var(--gold-2); font-weight: 500;
+      font-family: "JetBrains Mono", monospace; font-size: 10.5px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    .lab { margin-top: auto; padding: 12px; border-top: 1px solid var(--line); }
+    .lab-item {
+      display: flex; gap: 8px; align-items: center;
+      padding: 7px 4px; opacity: .38; cursor: not-allowed;
+    }
+    .lab-item i { width: 16px; text-align: center; color: var(--gold); }
+    .lab-item .t { font-size: 12px; color: var(--text); }
+    .lab-item .s { font-size: 10px; color: var(--text-3); }
+
+    /* Explorer */
+    .tree { flex: 1; overflow: auto; padding: 8px; }
+    .proj {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 8px; color: var(--text); font-weight: 600; font-size: 12.5px;
+      border-radius: 6px;
+    }
+    .proj i.chev { font-size: 9px; color: var(--text-3); }
+    .threads { padding: 2px 4px 10px 18px; display: flex; flex-direction: column; gap: 2px; }
+    .thread {
+      width: 100%; display: flex; align-items: center; gap: 8px;
+      padding: 7px 8px; border-radius: 6px; text-align: left;
+      color: var(--text-3); border: 1px solid transparent;
+    }
+    .thread:hover { background: var(--bg-3); color: var(--text-2); }
+    .thread.active { background: var(--bg-3); border-color: var(--line-hi); color: var(--text); }
+    .thread .name { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .thread.unread { color: var(--text); font-weight: 600; }
+    .thread.alert { background: rgba(232,93,93,0.08); border-color: rgba(232,93,93,0.2); color: #f0c4c4; }
+    .st {
+      width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+    }
+    .st.ok { background: #6a6a6a; }
+    .st.run { background: var(--warn); box-shadow: 0 0 8px rgba(224,165,74,.7); animation: pulse 1.6s ease-in-out infinite; }
+    .st.new { background: var(--info); box-shadow: 0 0 8px rgba(142,180,212,.7); }
+    .st.err { background: var(--danger); box-shadow: 0 0 8px rgba(232,93,93,.7); }
+    @keyframes pulse { 50% { opacity: .45; transform: scale(1.15); } }
+
+    .legend {
+      padding: 12px; border-top: 1px solid var(--line);
+      font-size: 10.5px; color: var(--text-3);
+    }
+    .legend h4 { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 8px; color: #5c5c5c; }
+    .legend div { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+
+    /* ===== Main ===== */
+    .main {
+      min-width: 0; min-height: 0;
+      background: var(--bg-0);
+      display: flex; flex-direction: column;
+      position: relative;
+    }
+    .view { display: none; flex: 1; min-height: 0; flex-direction: column; animation: in .18s var(--ease); }
+    .view.on { display: flex; }
+    @keyframes in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+    .view-bar {
+      min-height: 44px; padding: 8px 14px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      border-bottom: 1px solid var(--line); background: #171717;
+    }
+    .view-bar h3 { color: var(--text); font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .view-bar h3 i { color: var(--gold); }
+    .view-bar p { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+
+    .chat-split {
+      flex: 1; min-height: 0;
+      display: grid; grid-template-columns: minmax(0, 1fr) 300px;
+    }
+    .chat-col { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+    .msgs { flex: 1; overflow: auto; padding: 22px 8%; display: flex; flex-direction: column; gap: 16px; }
+    .bubble { max-width: 720px; width: fit-content; max-width: min(720px, 86%); }
+    .bubble.me { align-self: flex-end; }
+    .bubble .body {
+      padding: 11px 13px; border-radius: 12px;
+      border: 1px solid var(--line); background: var(--bg-2);
+      color: var(--text); line-height: 1.55; font-size: 13px;
+    }
+    .bubble.me .body {
+      background: var(--gold-dim);
+      border-color: rgba(212,175,55,0.28);
+    }
+    .who { display: flex; align-items: center; gap: 7px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--line); font-size: 11px; font-weight: 600; color: var(--gold-2); }
+    .plan-card {
+      margin-top: 10px; padding: 10px 12px;
+      background: #141414; border: 1px solid var(--line-hi); border-radius: 8px;
+    }
+    .plan-card .ok { color: var(--ok); font-size: 11px; font-weight: 600; margin-bottom: 6px; }
+    .plan-card li { font-size: 12px; color: var(--text-3); padding: 2px 0; list-style: none; }
+    .hint { font-size: 11.5px; color: var(--text-3); font-style: italic; margin-top: 8px; }
+
+    .composer {
+      padding: 12px 8% 16px; border-top: 1px solid var(--line); background: #161616;
+    }
+    .box {
+      position: relative; border: 1px solid var(--line-hi); border-radius: 10px;
+      background: var(--bg-1); transition: border-color .15s, box-shadow .15s;
+    }
+    .box:focus-within { border-color: rgba(212,175,55,0.45); box-shadow: 0 0 0 3px var(--gold-dim); }
+    .box textarea {
+      width: 100%; min-height: 56px; max-height: 140px; resize: none;
+      background: transparent; border: 0; outline: none;
+      color: var(--text); padding: 12px 48px 12px 12px;
+    }
+    .send {
+      position: absolute; right: 8px; bottom: 8px;
+      width: 30px; height: 30px; border-radius: 7px;
+      background: var(--gold); color: #1a1a1a;
+      display: grid; place-items: center;
+    }
+    .empty {
+      flex: 1; display: grid; place-items: center; text-align: center; color: var(--text-3);
+    }
+    .empty i { font-size: 28px; color: var(--gold); opacity: .55; margin-bottom: 10px; }
+
+    /* Loop */
+    .loop-top { border-bottom: 1px solid var(--line); background: #161616; }
+    .arts {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px; border-bottom: 1px solid var(--line);
+    }
+    .art {
+      display: flex; align-items: center; gap: 8px;
+      height: 28px; padding: 0 10px; border-radius: 6px;
+      background: var(--bg-2); border: 1px solid var(--line-hi);
+      color: var(--text-2); font-size: 12px;
+    }
+    .art:hover, .art.on { border-color: rgba(212,175,55,0.4); color: var(--text); background: var(--gold-dim); }
+    .bar { width: 42px; height: 3px; background: #111; border-radius: 99px; overflow: hidden; }
+    .bar > i { display: block; height: 100%; width: 66%; background: var(--gold); }
+
+    .pipeline {
+      display: flex; justify-content: center; align-items: flex-start; gap: 28px;
+      padding: 14px 16px 16px; position: relative;
+    }
+    .pipeline::before {
+      content: ""; position: absolute; left: 12%; right: 12%; top: 30px;
+      height: 1px; background: linear-gradient(90deg, transparent, var(--line-hi), transparent);
+    }
+    .agent { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; opacity: .4; transition: opacity .25s, transform .25s var(--ease); min-width: 72px; }
+    .agent.on { opacity: 1; transform: translateY(-2px); }
+    .agent.done { opacity: .75; }
+    .av {
+      width: 34px; height: 34px; border-radius: 50%;
+      display: grid; place-items: center;
+      background: var(--bg-2); border: 1px solid var(--line-hi);
+      color: var(--text-2);
+    }
+    .agent.on .av {
+      border-color: var(--gold);
+      color: var(--gold-2);
+      box-shadow: 0 0 0 3px var(--gold-dim), 0 0 18px var(--gold-glow);
+    }
+    .agent.done .av { color: var(--ok); border-color: rgba(107,203,138,.35); }
+    .agent b { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-2); }
+    .agent .mdl { font-size: 9px; color: var(--text-3); background: #121212; padding: 1px 5px; border-radius: 4px; }
+
+    .work {
+      flex: 1; min-height: 0;
+      display: grid; grid-template-columns: minmax(0, 1fr) 320px;
+    }
+    .term {
+      overflow: auto; padding: 16px 18px;
+      font-family: "JetBrains Mono", monospace; font-size: 12.5px; line-height: 1.7;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.015), transparent 80px),
+        #121212;
+    }
+    .term .idle { text-align: center; color: var(--text-3); margin-top: 18vh; }
+    .ln { animation: in .16s var(--ease); clear: both; }
+    .tk {
+      font-size: 10px; color: var(--gold);
+      background: #1a1a1a; border: 1px solid var(--line-hi);
+      padding: 1px 6px; border-radius: 99px; white-space: nowrap;
+    }
+    .cursor::after { content: "█"; color: var(--gold); margin-left: 4px; animation: blink 1s step-end infinite; }
+    .think.done .cursor::after { content: none; animation: none; }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    .think {
+      margin: 10px 0 8px;
+      border: 1px solid var(--line-hi);
+      border-radius: 8px;
+      background: #161616;
+      overflow: hidden;
+    }
+    .think.live {
+      border-color: rgba(212,175,55,0.38);
+      box-shadow: 0 0 0 1px var(--gold-dim), 0 8px 24px rgba(0,0,0,.18);
+    }
+    .think.done { border-color: var(--line); }
+    .think-hd {
+      width: 100%; display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; text-align: left; color: var(--text-2);
+    }
+    .think-hd:hover { background: rgba(255,255,255,0.02); }
+    .think-hd .chev {
+      width: 14px; font-size: 10px; color: var(--text-3);
+      transition: transform .18s var(--ease);
+    }
+    .think.open .think-hd .chev { transform: rotate(90deg); color: var(--gold); }
+    .think-hd .pulse {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--gold); box-shadow: 0 0 8px var(--gold);
+      animation: pulse 1.4s ease-in-out infinite; flex-shrink: 0;
+    }
+    .think.done .think-hd .pulse { background: #5a5a5a; box-shadow: none; animation: none; }
+    .think-hd .ttl { font-size: 11px; font-weight: 600; color: var(--text); }
+    .think-hd .meta { font-size: 10.5px; color: var(--text-3); }
+    .think-hd .grow { flex: 1; }
+    .think-bd {
+      display: none;
+      padding: 0 12px 10px 28px;
+      color: var(--text-3); font-size: 12px; line-height: 1.65;
+      border-top: 1px solid var(--line);
+    }
+    .think.open .think-bd { display: block; padding-top: 8px; }
+    .think-bd p { margin: 0 0 6px; }
+    .think-bd p:last-child { margin: 0; }
+    .abort-banner {
+      margin-top: 12px; padding: 10px 12px; border-radius: 8px;
+      background: rgba(232,93,93,0.1); border: 1px solid rgba(232,93,93,0.35); color: #ffb4b4; font-weight: 600;
+    }
+    .summary {
+      margin: 4px 0 12px; padding: 8px 10px; border-radius: 7px;
+      background: #171717; border: 1px solid var(--line);
+      color: var(--text-2); font-size: 12px;
+    }
+    .done-cta {
+      margin-top: 16px; padding: 14px;
+      border: 1px solid rgba(212,175,55,0.35); border-radius: 10px;
+      background: var(--gold-dim); text-align: center;
+    }
+    .done-cta p { color: var(--text-2); font-size: 12px; margin-bottom: 10px; }
+    .done-cta .btn { width: auto; padding: 0 16px; margin: 0 auto; }
+
+    .inspector {
+      border-left: 1px solid var(--line); background: #161616;
+      display: flex; flex-direction: column; min-height: 0;
+    }
+    .tabs { display: flex; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+    .tab {
+      flex: 1 1 auto; min-width: 52px; height: 30px; padding: 0 7px;
+      font-size: 10px; font-weight: 600; color: var(--text-3);
+      border-bottom: 2px solid transparent;
+    }
+    .tab.on { color: var(--gold-2); border-bottom-color: var(--gold); background: var(--gold-dim); }
+    .doc { flex: 1; overflow: auto; padding: 12px 14px; font-family: "JetBrains Mono", monospace; font-size: 12px; line-height: 1.65; }
+    .doc .done { color: var(--text-3); }
+    .doc .now {
+      color: var(--gold-2); background: var(--gold-dim);
+      margin: 1px -6px; padding: 2px 6px; border-radius: 4px;
+    }
+    .doc .todo { color: var(--text-2); }
+    .doc .sub { padding-left: 18px; font-size: 11.5px; }
+    .doc .mk { display: inline-block; width: 22px; color: var(--text-3); }
+    .doc .now .mk { color: var(--gold); font-weight: 600; }
+    .doc-legend {
+      display: flex; gap: 12px; flex-wrap: wrap;
+      padding: 8px 12px; border-top: 1px solid var(--line);
+      font-size: 10px; color: var(--text-3); font-family: "JetBrains Mono", monospace;
+    }
+    .doc-legend b { color: var(--gold-2); font-weight: 500; }
+
+    /* Status */
+    .statusbar {
+      display: flex; align-items: center; gap: 14px;
+      padding: 0 12px; background: #141414; border-top: 1px solid var(--line);
+      font-size: 11px; color: var(--text-3);
+    }
+    .statusbar .live { display: flex; align-items: center; gap: 6px; }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: #6a6a6a; }
+    .dot.on { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+    .dot.run { background: var(--gold); box-shadow: 0 0 8px var(--gold); animation: pulse 1.4s infinite; }
+    .statusbar .sep { width: 1px; height: 12px; background: var(--line-hi); }
+    .statusbar .grow { margin-left: auto; }
+
+    /* Overlay */
+    .overlay {
+      position: fixed; inset: 0; z-index: 50;
+      background: rgba(10,10,10,0.62); backdrop-filter: blur(8px);
+      display: none; place-items: center;
+    }
+    .overlay.on { display: grid; }
+    .modal {
+      width: min(640px, calc(100vw - 32px));
+      background: var(--bg-2); border: 1px solid var(--line-hi);
+      border-radius: 12px; box-shadow: 0 30px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(212,175,55,0.08);
+      overflow: hidden; animation: in .2s var(--ease);
+    }
+    .modal header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px; border-bottom: 1px solid var(--line); background: #1c1c1c;
+    }
+    .modal header h3 { color: var(--text); font-size: 13px; display: flex; gap: 8px; align-items: center; }
+    .modal header h3 i { color: var(--gold); }
+    .modal .body { padding: 16px; }
+    .modal footer {
+      display: flex; justify-content: flex-end; gap: 8px;
+      padding: 12px 16px; border-top: 1px solid var(--line); background: #1c1c1c;
+    }
+    .ghost { height: 32px; padding: 0 12px; border-radius: 7px; color: var(--text-2); }
+    .ghost:hover { color: var(--text); }
+    .primary {
+      height: 32px; padding: 0 14px; border-radius: 7px;
+      background: var(--gold); color: #1a1a1a; font-weight: 600;
+    }
+
+    .grid-set { display: grid; gap: 10px; }
+    .agent-row {
+      display: grid; grid-template-columns: 110px 1fr 140px; gap: 8px; align-items: center;
+      padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: #191919;
+    }
+    .agent-row span { font-size: 12px; color: var(--text); font-weight: 600; }
+    .agent-row select {
+      height: 30px; background: #121212; border: 1px solid var(--line-hi);
+      border-radius: 6px; padding: 0 8px; color: var(--text); outline: none;
+    }
+    .agent-row select:focus { border-color: var(--gold); }
+
+    .palette { width: min(560px, calc(100vw - 32px)); }
+    .palette input {
+      width: 100%; height: 46px; border: 0; outline: none;
+      background: transparent; color: var(--text); padding: 0 16px;
+      border-bottom: 1px solid var(--line); font-size: 14px;
+    }
+    .plist { padding: 8px; }
+    .pcmd {
+      width: 100%; display: flex; align-items: center; gap: 10px;
+      padding: 9px 10px; border-radius: 7px; text-align: left; color: var(--text-2);
+    }
+    .pcmd:hover, .pcmd.hot { background: var(--gold-dim); color: var(--text); }
+    .pcmd kbd {
+      margin-left: auto; font-size: 10px; color: var(--text-3);
+      border: 1px solid var(--line-hi); padding: 1px 5px; border-radius: 4px;
+    }
+
+    /* Responsive */
+    @media (max-width: 1180px) {
+      .shell { grid-template-columns: var(--rail) minmax(0,1fr) 0; }
+      .explorer { position: absolute; right: 0; top: var(--title); bottom: var(--status); width: var(--explorer); z-index: 20; box-shadow: -16px 0 40px rgba(0,0,0,.4); }
+      .shell.exp-open { grid-template-columns: var(--rail) minmax(0,1fr) 0; }
+      .shell.exp-open .explorer { opacity: 1; pointer-events: auto; }
+      .work, .chat-split { grid-template-columns: 1fr; }
+      .inspector { border-left: 0; border-top: 1px solid var(--line); max-height: 220px; }
+    }
+    @media (max-width: 860px) {
+      .shell { grid-template-columns: var(--rail) minmax(0,1fr) 0; }
+      .msgs, .composer { padding-left: 16px; padding-right: 16px; }
+      .pipeline { gap: 12px; }
+      .chip.tokens-global span { display: none; }
+    }
+
+
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="titlebar">
+      <div class="traffic" aria-hidden="true"><i class="c"></i><i class="m"></i><i class="x"></i></div>
+      <div class="brand"><span class="mark"><i class="fa-solid fa-layer-group"></i></span> Pi Agent <span class="muted">/ workspace</span></div>
+      <div class="spacer"></div>
+      <button class="kbtn" onclick="openPalette()" title="Command palette"><span class="mono">⌘K</span></button>
+      <div class="chip gold tokens-global"><i class="fa-solid fa-coins"></i><span>Global</span> <b id="global-tokens">145.2k</b></div>
+      <div class="user"><span class="avatar">A</span> Abe</div>
+    </header>
+
+    <div class="shell" id="shell">
+      <nav class="rail">
+        <button class="rail-btn" data-view="chat-global" title="Chat Global" onclick="setView('chat-global')"><i class="fa-solid fa-globe"></i></button>
+        <button class="rail-btn active" data-view="chat-thread" title="Chat da Thread" onclick="setView('chat-thread')"><i class="fa-solid fa-comments"></i></button>
+        <button class="rail-btn" title="Grafo" onclick="goGraph()"><i class="fa-solid fa-diagram-project"></i></button>
+        <button class="rail-btn" data-view="workspace" id="rail-loop" title="Loop" onclick="setView('workspace')"><i class="fa-solid fa-bolt"></i></button>
+        <button class="rail-btn" title="Explorer" onclick="toggleExplorer()"><i class="fa-solid fa-folder-tree"></i></button>
+        <div class="push"></div>
+        <button class="rail-btn" title="Configurações" onclick="toggleModal('modal-settings')"><i class="fa-solid fa-gear"></i></button>
+      </nav>
+
+      <section class="main">
+        <div class="view on" id="view-chat-thread">
+          <div class="view-bar">
+            <div>
+              <h3><i class="fa-solid fa-clipboard-user"></i> Assistente da Thread <span class="muted mono" id="thread-name">/ feature/auth-ui</span></h3>
+              <p>Descreva o escopo. O Planejador gera o PLAN.md para o loop Techlead ↔ Coder.</p>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="chip"><i class="fa-solid fa-gauge"></i> <b id="mb-plan">claude-sonnet</b> · <span class="mono" id="mb-plan-t">Advanced</span></span>
+              <button class="kbtn" onclick="openHistory('thread')" id="btn-history" title="Histórico da conversa"><i class="fa-solid fa-clock-rotate-left"></i> <span>Histórico</span> <span class="mono">⌥H</span></button>
+            </div>
+          </div>
+          <div class="chat-split">
+            <div class="chat-col">
+              <div class="msgs">
+                <div class="bubble me"><div class="body">Preciso criar a tela de login. JWT, Tailwind, tratamento de erros. Endpoint já existe em <span class="mono">/api/auth/login</span>.</div></div>
+                <div class="bubble">
+                  <div class="body">
+                    <div class="who"><i class="fa-solid fa-brain"></i> Planejador · claude-sonnet · Advanced</div>
+                    Analisei o contexto de Frontend E-commerce e fatiei em 3 fases. A fase 2 está ativa na subfase 2.2.
+                    <div class="plan-card">
+                      <div class="ok"><i class="fa-solid fa-file-circle-check"></i> PLAN.md gerado</div>
+                      <ul>
+                        <li><span class="mono">[x]</span> Fase 1 — Configuração base</li>
+                        <li><span class="mono">[-]</span> Fase 2 — Autenticação UI</li>
+                        <li class="sub"><span class="mono">[-]</span> 2.2 Validação Zod</li>
+                        <li><span class="mono">[ ]</span> Fase 3 — Integração API JWT</li>
+                      </ul>
+                    </div>
+                    <p class="hint">Documento pronto. Inicie o loop no orquestrador para o Techlead fatiar o batch.</p>
+                  </div>
+                </div>
+              </div>
+              <div class="composer">
+                <div class="box">
+                  <textarea placeholder="Descreva a funcionalidade ou ajuste o plano…"></textarea>
+                  <button class="send" title="Enviar"><i class="fa-solid fa-arrow-up"></i></button>
+                </div>
+              </div>
+            </div>
+            <aside class="inspector">
+              <div class="tabs">
+                <button class="tab on" data-doc="plan" onclick="setDoc('plan')">PLAN</button>
+                <button class="tab" data-doc="todo" onclick="setDoc('todo')">TODO</button>
+                <button class="tab" data-doc="agents" onclick="setDoc('agents')">AGENTS</button>
+                <button class="tab" data-doc="epics" onclick="setDoc('epics')">EPICS</button>
+                <button class="tab" data-doc="escopo" onclick="setDoc('escopo')">ESCOPO</button>
+              </div>
+              <div class="doc" data-doc="plan"></div>
+              <div class="doc" data-doc="todo" hidden></div>
+              <div class="doc" data-doc="agents" hidden></div>
+              <div class="doc" data-doc="epics" hidden></div>
+              <div class="doc" data-doc="escopo" hidden></div>
+              <div class="doc-legend"><span><b>[x]</b> feito</span><span><b>[-]</b> atual</span><span><b>[ ]</b> pendente</span></div>
+            </aside>
+          </div>
+        </div>
+
+        <div class="view" id="view-chat-global">
+          <div class="view-bar">
+            <div>
+              <h3><i class="fa-solid fa-globe"></i> Chat Global · Frontend E-commerce</h3>
+              <p>Contexto cruzado: main, feature/auth-ui, fix/cart-calc, refactor/api</p>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="chip"><i class="fa-solid fa-eye"></i> Visão total</span>
+              <button class="kbtn" onclick="openHistory('global')" title="Histórico global"><i class="fa-solid fa-clock-rotate-left"></i> <span>Histórico</span></button>
+            </div>
+          </div>
+          <div class="empty">
+            <div>
+              <i class="fa-solid fa-globe"></i>
+              <p>Pergunte sobre o escopo geral do projeto.</p>
+            </div>
+          </div>
+          <div class="composer">
+            <div class="box">
+              <textarea placeholder="Pergunte sobre qualquer thread deste projeto…"></textarea>
+              <button class="send"><i class="fa-solid fa-arrow-up"></i></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="view" id="view-workspace">
+          <div class="loop-top">
+            <div class="arts">
+              <span class="art on"><i class="fa-solid fa-list-check"></i> PLAN.md <span class="bar"><i id="plan-bar"></i></span></span>
+              <div class="spacer"></div>
+              <button class="kbtn" onclick="toggleModal('modal-orchestrator')" title="Abrir orquestrador"><i class="fa-solid fa-sliders"></i> Orquestrador</button>
+              <div class="chip"><i class="fa-regular fa-clock"></i> <span class="mono" id="loop-timer">00:00:00</span></div>
+              <div class="chip gold"><i class="fa-solid fa-coins"></i> <b id="thread-tokens">8.4k</b></div>
+            </div>
+            <div class="pipeline">
+              <div class="agent done" id="tracker-plan">
+                <div class="av"><i class="fa-solid fa-brain"></i></div>
+                <b>Planejador</b>
+                <span class="mdl mono" id="t-plan">claude-sonnet</span>
+              </div>
+              <div class="agent" id="tracker-techlead">
+                <div class="av"><i class="fa-solid fa-user-tie"></i></div>
+                <b>Techlead</b>
+                <span class="mdl mono active-model-lead" id="t-lead">grok-4</span>
+              </div>
+              <div class="agent" id="tracker-coder">
+                <div class="av"><i class="fa-solid fa-laptop-code"></i></div>
+                <b>Coder</b>
+                <span class="mdl mono active-model-coder" id="t-coder">deepseek-v4</span>
+              </div>
+              <div class="agent" id="tracker-qa">
+                <div class="av"><i class="fa-solid fa-gavel"></i></div>
+                <b>Juiz TDD</b>
+                <span class="mdl mono" id="t-qa">grok-4</span>
+              </div>
+            </div>
+          </div>
+          <div class="work">
+            <div class="term" id="loop-terminal">
+              <div class="idle">Inicie o loop para o Techlead fatiar a fase ativa e o Coder executar o batch.</div>
+            </div>
+            <aside class="inspector">
+              <div class="tabs">
+                <button class="tab on" data-doc="plan" onclick="setDoc('plan')">PLAN</button>
+                <button class="tab" data-doc="todo" onclick="setDoc('todo')">TODO</button>
+                <button class="tab" data-doc="err" onclick="setDoc('err')">LOG</button>
+              </div>
+              <div class="doc" data-doc="plan"></div>
+              <div class="doc" data-doc="todo" hidden></div>
+              <div class="doc" data-doc="err" hidden></div>
+              <div class="doc-legend"><span><b>[x]</b> feito</span><span><b>[-]</b> atual</span><span><b>[ ]</b> pendente</span></div>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <aside class="explorer">
+        <div class="pane-head">
+          <span class="label">Explorer</span>
+          <button class="icon-btn" title="Nova thread"><i class="fa-solid fa-plus"></i></button>
+        </div>
+        <div class="tree">
+          <div class="proj"><i class="fa-solid fa-chevron-down chev"></i><i class="fa-brands fa-react" style="color:#7eb6d9"></i> Frontend E-commerce</div>
+          <div class="threads">
+            <button class="thread" data-branch="main" onclick="selectThread('main', this)">
+              <span class="st ok"></span><i class="fa-solid fa-code-branch"></i><span class="name">main</span>
+            </button>
+            <button class="thread active" data-branch="feature/auth-ui" onclick="selectThread('feature/auth-ui', this)">
+              <span class="st run"></span><i class="fa-solid fa-code-branch"></i><span class="name">feature/auth-ui</span>
+            </button>
+            <button class="thread unread" id="thread-fix" data-branch="fix/cart-calc" onclick="markAsSeen(this)">
+              <span class="st new" id="dot-fix"></span><i class="fa-solid fa-code-branch"></i><span class="name">fix/cart-calc</span>
+            </button>
+            <button class="thread alert" data-branch="refactor/api" onclick="selectThread('refactor/api', this)">
+              <span class="st err"></span><i class="fa-solid fa-circle-exclamation"></i><span class="name">refactor/api</span>
+            </button>
+          </div>
+          <div class="proj" style="color:var(--text-3)"><i class="fa-solid fa-chevron-down chev"></i><i class="fa-brands fa-node-js" style="color:#6bcb8a;opacity:.7"></i> Backend API Hub</div>
+          <div class="threads">
+            <button class="thread" data-branch="main" onclick="selectThread('main', this)">
+              <span class="st ok"></span><i class="fa-solid fa-code-branch"></i><span class="name">main</span>
+            </button>
+          </div>
+        </div>
+        <div class="legend">
+          <h4>Status da thread</h4>
+          <div><span class="st run"></span> Loop em andamento</div>
+          <div><span class="st new"></span> Terminou · precisa ver</div>
+          <div><span class="st ok"></span> Visto / estável</div>
+          <div><span class="st err"></span> Parou · atenção</div>
+        </div>
+      </aside>
+    </div>
+
+    <footer class="statusbar">
+      <span class="live"><span class="dot" id="motor-dot"></span> <span id="motor-label">Motor ocioso</span></span>
+      <span class="sep"></span>
+      <span class="mono" id="status-branch">feature/auth-ui</span>
+      <span class="sep"></span>
+      <span>Fase 2.2 · Validação Zod</span>
+      <span class="grow"></span>
+      <span id="display-thinking">thinking por agente</span>
+      <span class="sep"></span>
+      <span class="mono">Pi · v7</span>
+    </footer>
+  </div>
+
+  <div class="overlay" id="modal-settings" onclick="if(event.target===this)toggleModal('modal-settings')">
+    <div class="modal">
+      <header>
+        <h3><i class="fa-solid fa-sliders"></i> Modelos da Thread</h3>
+        <button class="icon-btn" onclick="toggleModal('modal-settings')"><i class="fa-solid fa-xmark"></i></button>
+      </header>
+      <div class="body">
+        <p style="font-size:12px;color:var(--text-3);margin-bottom:12px">Cada agente usa modelo e thinking próprios. O loop Techlead ↔ Coder herda estes valores.</p>
+        <div class="grid-set">
+          <label class="agent-row"><span>Planejador</span>
+            <select id="s-plan-m"><option>claude-sonnet</option><option>gpt-4o</option><option>grok-4</option></select>
+            <select id="s-plan-t"><option>Advanced</option><option>Standard</option><option>Maximum</option></select>
+          </label>
+          <label class="agent-row"><span>Techlead</span>
+            <select id="s-lead-m"><option>grok-4</option><option>claude-sonnet</option><option>gpt-4o</option></select>
+            <select id="s-lead-t"><option>Standard</option><option>Advanced</option><option>Maximum</option></select>
+          </label>
+          <label class="agent-row"><span>Coder</span>
+            <select id="s-coder-m"><option>deepseek-v4</option><option>claude-sonnet</option><option>gpt-4o</option></select>
+            <select id="s-coder-t"><option>Standard</option><option>Advanced</option><option>Maximum</option></select>
+          </label>
+          <label class="agent-row"><span>Juiz TDD</span>
+            <select id="s-qa-m"><option>grok-4</option><option>gpt-4o</option><option>claude-sonnet</option></select>
+            <select id="s-qa-t"><option>Maximum</option><option>Advanced</option><option>Standard</option></select>
+          </label>
+        </div>
+      </div>
+      <footer>
+        <button class="ghost" onclick="toggleModal('modal-settings')">Cancelar</button>
+        <button class="primary" onclick="saveSettings()">Salvar</button>
+      </footer>
+    </div>
+  </div>
+
+  <div class="overlay" id="modal-history" onclick="if(event.target===this)closeModal('modal-history')">
+    <div class="modal">
+      <header>
+        <h3><i class="fa-solid fa-clock-rotate-left"></i> <span id="history-title">Histórico da Thread</span></h3>
+        <button class="icon-btn" onclick="closeModal('modal-history')"><i class="fa-solid fa-xmark"></i></button>
+      </header>
+      <div class="body" style="max-height:60vh;overflow:auto">
+        <button class="btn btn-gold" id="btn-new-session" onclick="newSession(this)" style="margin-bottom:10px"><i class="fa-solid fa-plus"></i> Nova sessão (limpa contexto)</button>
+        <div class="grid-set" id="history-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="modal-orchestrator" onclick="if(event.target===this)closeModal('modal-orchestrator')">
+    <div class="modal">
+      <header>
+        <h3><i class="fa-solid fa-sliders"></i> Orquestrador · <span id="orch-branch">feature/auth-ui</span></h3>
+        <button class="icon-btn" onclick="closeModal('modal-orchestrator')"><i class="fa-solid fa-xmark"></i></button>
+      </header>
+      <div class="body">
+        <button class="btn btn-gold" id="btn-start-loop" onclick="startLoopUI()"><i class="fa-solid fa-play"></i> Iniciar Loop</button>
+        <button class="btn btn-danger" id="btn-stop-loop" onclick="stopLoopUI()" disabled style="margin-top:6px"><i class="fa-solid fa-stop"></i> Abortar Loop</button>
+        <div class="sec-title">Agents</div>
+        <div class="roster">
+          <article class="roster-card">
+            <div class="who"><i class="fa-solid fa-brain"></i> Planejador</div>
+            <div class="kv">
+              <div class="line"><span>modelo</span><b id="m-plan">claude-sonnet</b></div>
+              <div class="line"><span>thinking</span><b id="m-plan-t">Advanced</b></div>
+            </div>
+          </article>
+          <article class="roster-card">
+            <div class="who"><i class="fa-solid fa-user-tie"></i> Techlead</div>
+            <div class="kv">
+              <div class="line"><span>modelo</span><b id="m-lead">grok-4</b></div>
+              <div class="line"><span>thinking</span><b id="m-lead-t">Standard</b></div>
+            </div>
+          </article>
+          <article class="roster-card">
+            <div class="who"><i class="fa-solid fa-laptop-code"></i> Coder</div>
+            <div class="kv">
+              <div class="line"><span>modelo</span><b id="m-coder">deepseek-v4</b></div>
+              <div class="line"><span>thinking</span><b id="m-coder-t">Standard</b></div>
+            </div>
+          </article>
+          <article class="roster-card">
+            <div class="who"><i class="fa-solid fa-gavel"></i> Juiz TDD</div>
+            <div class="kv">
+              <div class="line"><span>modelo</span><b id="m-qa">grok-4</b></div>
+              <div class="line"><span>thinking</span><b id="m-qa-t">Maximum</b></div>
+            </div>
+          </article>
+        </div>
+        <button class="btn btn-ghost" onclick="closeModal('modal-orchestrator');toggleModal('modal-settings')">Configurar modelos</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="palette" onclick="if(event.target===this)closePalette()">
+    <div class="modal palette">
+      <input id="palette-input" placeholder="Buscar comando…" oninput="filterPalette(this.value)" />
+      <div class="plist" id="plist"></div>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      view: 'chat-thread',
+      abort: false,
+      running: false,
+      timer: null,
+      elapsed: 0,
+      globalTokens: 145200,
+      threadTokens: 8400,
+      activeSession: 'sess-1'
+    };
+
+    const sessions = {
+      'feature/auth-ui': [
+        { id: 'sess-1', label: 'Criar tela de login', meta: '3 msgs · hoje 09:00', when: 'now' },
+        { id: 'sess-2', label: 'Ajustar validações do form', meta: '0 msgs · vazio', when: 'none' },
+        { id: 'sess-3', label: 'Limpeza final do código', meta: '12 msgs · ontem', when: 'old' }
+      ],
+      'main': [
+        { id: 's-1', label: 'Setup inicial do projeto', meta: '6 msgs · ontem', when: 'old' }
+      ],
+      'fix/cart-calc': [
+        { id: 'sess-c-1', label: 'Corrigir cálculo do carrinho', meta: '8 msgs · hoje', when: 'now' }
+      ],
+      global: [
+        { id: 'g-col-1', label: 'Visão geral do escopo', meta: '14 msgs · hoje', when: 'now' },
+        { id: 'g-col-2', label: 'Decisões de stack', meta: '5 msgs · ontem', when: 'old' }
+      ]
+    };
+
+    const docs = {
+      plan: [
+        { mark: '[x]', text: 'Fase 1 — Configuração base', cls: 'done' },
+        { mark: '[x]', text: '1.1 Scaffold da rota /login', cls: 'done sub' },
+        { mark: '[x]', text: '1.2 Tokens de tema e layout', cls: 'done sub' },
+        { mark: '[-]', text: 'Fase 2 — Autenticação UI', cls: 'now' },
+        { mark: '[x]', text: '2.1 LoginForm.tsx + estados', cls: 'done sub' },
+        { mark: '[-]', text: '2.2 Validação Zod', cls: 'now sub' },
+        { mark: '[ ]', text: '2.3 Mensagens de erro', cls: 'todo sub' },
+        { mark: '[ ]', text: 'Fase 3 — Integração API JWT', cls: 'todo' },
+        { mark: '[ ]', text: '3.1 POST /api/auth/login', cls: 'todo sub' },
+        { mark: '[ ]', text: '3.2 Persistência do token', cls: 'todo sub' }
+      ],
+      todo: [
+        { mark: '[x]', text: 'Criar LoginForm.tsx', cls: 'done' },
+        { mark: '[-]', text: 'Schema Zod + mensagens', cls: 'now' },
+        { mark: '[ ]', text: 'Testes do submit /entrar/i', cls: 'todo' }
+      ],
+      err: [
+        { mark: '', text: 'Unable to find element: /entrar/i', cls: 'todo', color: '#e85d5d' },
+        { mark: '', text: 'aguardando execução…', cls: 'done' }
+      ],
+      agents: [
+        { mark: '', text: '# AGENTS.md', cls: 'now' },
+        { mark: '', text: 'Planejador — escopo, PLAN.md, EPICS.md', cls: 'todo' },
+        { mark: '', text: 'Techlead — fatia fase ativa em TODO_BATCH.md', cls: 'todo' },
+        { mark: '', text: 'Coder — executa um item do batch por vez', cls: 'todo' },
+        { mark: '', text: 'Juiz TDD — lê error.log e devolve veredito', cls: 'todo' },
+        { mark: '', text: 'Loop: Techlead ↔ Coder até a fase fechar.', cls: 'done' }
+      ],
+      epics: [
+        { mark: '[x]', text: 'E1 Autenticação', cls: 'done' },
+        { mark: '[-]', text: 'E1.2 Tela de login + validação', cls: 'now' },
+        { mark: '[ ]', text: 'E1.3 Sessão e refresh token', cls: 'todo' },
+        { mark: '[ ]', text: 'E2 Carrinho e checkout', cls: 'todo' }
+      ],
+      escopo: [
+        { mark: '', text: '# ESCOPO.md', cls: 'now' },
+        { mark: '', text: 'In: login JWT, Tailwind, erros visíveis', cls: 'todo' },
+        { mark: '', text: 'In: endpoint existente /api/auth/login', cls: 'todo' },
+        { mark: '', text: 'Out: cadastro, reset de senha, OAuth', cls: 'done' }
+      ]
+    };
+
+    const cmds = [
+      { k: 'Chat global', fn: () => setView('chat-global'), keys: '⌘1' },
+      { k: 'Chat da thread', fn: () => setView('chat-thread'), keys: '⌘2' },
+      { k: 'Abrir grafo', fn: goGraph, keys: '⌘4' },
+      { k: 'Abrir loop', fn: () => setView('workspace'), keys: '⌘3' },
+      { k: 'Iniciar loop', fn: startLoopUI, keys: '⌘↵' },
+      { k: 'Configurar modelos', fn: () => toggleModal('modal-settings'), keys: '⌘,' },
+      { k: 'Histórico / nova sessão', fn: () => openHistory(state.view === 'chat-thread' ? 'thread' : 'global'), keys: '⌘H' },
+      { k: 'Toggle explorer', fn: toggleExplorer, keys: '⌘B' }
+    ];
+
+    function goGraph() { location.href = './pi_graph2.html'; }
+
+    function setView(id) {
+      state.view = id;
+      document.querySelectorAll('.view').forEach(v => v.classList.toggle('on', v.id === 'view-' + id));
+      document.querySelectorAll('.rail-btn[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === id));
+      closePalette();
+    }
+
+    function selectThread(branch, el) {
+      document.getElementById('status-branch').textContent = branch;
+      document.getElementById('thread-name').textContent = '/ ' + branch;
+      document.getElementById('orch-branch').textContent = branch;
+      state.sessions = sessions[branch] || [];
+      state.activeSession = (state.sessions[0] || {}).id || 'sess-1';
+      document.querySelectorAll('.thread').forEach(t => t.classList.remove('active'));
+      el.classList.add('active');
+      setView('chat-thread');
+    }
+
+    function markAsSeen(el) {
+      el.classList.remove('unread');
+      const st = el.querySelector('.st');
+      st.classList.remove('new');
+      st.classList.add('ok');
+      selectThread(el.dataset.branch, el);
+    }
+
+    function toggleModal(id) {
+      document.getElementById(id).classList.toggle('on');
+    }
+    function closeModal(id) { document.getElementById(id).classList.remove('on'); }
+
+    function currentBranch() {
+      const b = document.getElementById('status-branch').textContent;
+      return b || 'feature/auth-ui';
+    }
+
+    function historyKey() {
+      return state.view === 'chat-global' ? 'global' : currentBranch();
+    }
+
+    function openHistory(scope) {
+      const branch = scope === 'global' ? 'global' : currentBranch();
+      document.getElementById('history-title').textContent = scope === 'global' ? 'Histórico Global' : ('Histórico da Thread · ' + branch);
+      renderHistory(branch);
+      document.getElementById('btn-new-session').innerHTML = '<i class="fa-solid fa-plus"></i> Nova sessão (limpa contexto)';
+      document.getElementById('btn-new-session').className = 'btn btn-gold';
+      document.getElementById('modal-history').classList.add('on');
+    }
+
+    function renderHistory(key) {
+      const list = (sessions[key] || sessions['feature/auth-ui']);
+      const current = state.activeSession;
+      document.getElementById('history-list').innerHTML = list.map(s => `
+        <label class="agent-row" style="grid-template-columns:20px 1fr auto;cursor:pointer" onclick="activateSession('${s.id}','${key}')">
+          <input type="radio" name="session-pick" ${s.id===current?'checked':''} />
+          <span style="font-weight:${s.id===current?600:500}">${s.label}</span>
+          <span class="mono" style="font-size:10px;color:var(--text-3)">${s.meta}</span>
+        </label>`).join('');
+    }
+
+    function activateSession(id, key) {
+      state.activeSession = id;
+      const btn = document.getElementById('btn-new-session');
+      btn.innerHTML = '<i class="fa-solid fa-plus"></i> Nova sessão (limpa contexto)';
+      btn.className = 'btn btn-gold';
+      renderHistory(key);
+      closeModal('modal-history');
+      setView(key === 'global' ? 'chat-global' : 'chat-thread');
+    }
+
+    function newSession(btn) {
+      const branch = historyKey();
+      const key = branch;
+      const list = sessions[key] || sessions['feature/auth-ui'];
+      const next = 'sess-' + Date.now();
+      list.unshift({ id: next, label: 'Nova conversa', meta: '0 msgs · contexto zerado', when: 'now' });
+      state.activeSession = next;
+      const msgsEl = document.querySelector('#view-' + state.view + ' .msgs');
+      if (msgsEl) msgsEl.innerHTML = '';
+      renderHistory(key);
+      btn.innerHTML = '<i class="fa-solid fa-check"></i> Contexto limpo';
+      btn.className = 'btn btn-ghost';
+    }
+
+    function toggleExplorer() {
+      const shell = document.getElementById('shell');
+      if (window.innerWidth <= 1180) shell.classList.toggle('exp-open');
+      else shell.classList.toggle('no-exp');
+    }
+
+    function openPalette() {
+      renderPalette('');
+      document.getElementById('palette').classList.add('on');
+      document.getElementById('palette-input').value = '';
+      document.getElementById('palette-input').focus();
+    }
+    function closePalette() { document.getElementById('palette').classList.remove('on'); }
+    function renderPalette(q) {
+      const list = cmds.filter(c => c.k.toLowerCase().includes(q.toLowerCase()));
+      document.getElementById('plist').innerHTML = list.map((c, i) =>
+        `<button class="pcmd ${i===0?'hot':''}" onclick="cmds.find(x=>x.k==='${c.k}').fn()"><i class="fa-solid fa-chevron-right"></i>${c.k}<kbd>${c.keys}</kbd></button>`
+      ).join('') || '<div class="pcmd">Nenhum comando</div>';
+    }
+    function filterPalette(q) { renderPalette(q); }
+
+    function saveSettings() {
+      const map = {
+        plan: [document.getElementById('s-plan-m').value, document.getElementById('s-plan-t').value],
+        lead: [document.getElementById('s-lead-m').value, document.getElementById('s-lead-t').value],
+        coder: [document.getElementById('s-coder-m').value, document.getElementById('s-coder-t').value],
+        qa: [document.getElementById('s-qa-m').value, document.getElementById('s-qa-t').value]
+      };
+      document.getElementById('m-plan').textContent = map.plan[0];
+      document.getElementById('m-plan-t').textContent = map.plan[1];
+      document.getElementById('m-lead').textContent = map.lead[0];
+      document.getElementById('m-lead-t').textContent = map.lead[1];
+      document.getElementById('m-coder').textContent = map.coder[0];
+      document.getElementById('m-coder-t').textContent = map.coder[1];
+      document.getElementById('m-qa').textContent = map.qa[0];
+      document.getElementById('m-qa-t').textContent = map.qa[1];
+      document.getElementById('t-plan').textContent = map.plan[0];
+      document.getElementById('t-lead').textContent = map.lead[0];
+      document.getElementById('t-coder').textContent = map.coder[0];
+      document.getElementById('t-qa').textContent = map.qa[0];
+      document.getElementById('display-thinking').textContent = 'thinking por agente';
+      toggleModal('modal-settings');
+    }
+
+    function renderDocs() {
+      Object.entries(docs).forEach(([key, rows]) => {
+        const html = rows.map(r => {
+          const mk = r.mark ? `<span class="mk">${r.mark}</span>` : '';
+          const style = r.color ? ` style="color:${r.color}"` : '';
+          return `<div class="${r.cls}"${style}>${mk}${r.text}</div>`;
+        }).join('');
+        document.querySelectorAll('.doc[data-doc="'+key+'"]').forEach(el => { el.innerHTML = html; });
+      });
+      const checks = docs.plan.filter(r => r.mark);
+      const done = checks.filter(r => r.mark === '[x]').length;
+      const bar = document.getElementById('plan-bar');
+      if (bar) bar.style.width = Math.round((done / checks.length) * 100) + '%';
+    }
+
+    function markPlan(text) {
+      const row = docs.plan.find(r => r.text === text);
+      if (!row) return;
+      row.mark = '[x]';
+      row.cls = row.cls.replace('now', 'done').replace('todo', 'done');
+      renderDocs();
+    }
+
+    function activatePlan(text) {
+      const row = docs.plan.find(r => r.text === text);
+      if (!row) return;
+      row.mark = '[-]';
+      row.cls = row.cls.replace('todo', 'now').replace('done', 'now');
+      renderDocs();
+    }
+
+    function setDoc(which) {
+      const root = document.querySelector('.view.on') || document;
+      root.querySelectorAll('.doc[data-doc]').forEach(el => { el.hidden = el.dataset.doc !== which; });
+      root.querySelectorAll('.tab[data-doc]').forEach(el => el.classList.toggle('on', el.dataset.doc === which));
+      root.querySelectorAll('.art[data-doc]').forEach(el => el.classList.toggle('on', el.dataset.doc === which));
+    }
+
+    function updateAgent(id) {
+      ['plan','techlead','coder','qa'].forEach(k => {
+        const el = document.getElementById('tracker-' + k);
+        el.classList.toggle('on', k === id);
+      });
+    }
+
+    function fmt(n) { return (n/1000).toFixed(1) + 'k'; }
+    function addTokens(n) {
+      state.threadTokens += n; state.globalTokens += n;
+      document.getElementById('thread-tokens').textContent = fmt(state.threadTokens);
+      document.getElementById('global-tokens').textContent = fmt(state.globalTokens);
+    }
+
+    function setMotor(mode) {
+      const dot = document.getElementById('motor-dot');
+      const lab = document.getElementById('motor-label');
+      dot.className = 'dot' + (mode === 'run' ? ' run' : mode === 'on' ? ' on' : '');
+      lab.textContent = mode === 'run' ? 'Loop ativo' : mode === 'on' ? 'Motor conectado' : 'Motor ocioso';
+    }
+
+    function tick() {
+      state.elapsed += 1;
+      const h = String(Math.floor(state.elapsed/3600)).padStart(2,'0');
+      const m = String(Math.floor((state.elapsed%3600)/60)).padStart(2,'0');
+      const s = String(state.elapsed%60).padStart(2,'0');
+      document.getElementById('loop-timer').textContent = `${h}:${m}:${s}`;
+    }
+
+    function stopLoopUI() { state.abort = true; }
+
+    function resetLoopBtns() {
+      const start = document.getElementById('btn-start-loop');
+      const stop = document.getElementById('btn-stop-loop');
+      start.style.display = '';
+      stop.disabled = true;
+      stop.className = 'btn btn-ghost';
+      stop.innerHTML = '<i class="fa-solid fa-stop"></i> Abortar';
+      state.running = false;
+      clearInterval(state.timer);
+      setMotor('on');
+      updateAgent(null);
+    }
+
+    function toggleThink(btn) {
+      btn.closest('.think').classList.toggle('open');
+    }
+
+    function openThink(term, { agent, model, thinking, title }) {
+      const id = 'th-' + Date.now();
+      term.insertAdjacentHTML('beforeend', `
+        <article class="think open live" id="${id}">
+          <button class="think-hd" onclick="toggleThink(this)">
+            <i class="fa-solid fa-chevron-right chev"></i>
+            <span class="pulse"></span>
+            <span class="ttl">${agent}</span>
+            <span class="meta">${model} · ${thinking}</span>
+            <span class="grow"></span>
+            <span class="meta">${title}</span>
+          </button>
+          <div class="think-bd"></div>
+        </article>`);
+      term.scrollTop = term.scrollHeight;
+      return document.getElementById(id);
+    }
+
+    function writeThink(el, html, live) {
+      const bd = el.querySelector('.think-bd');
+      bd.querySelectorAll('.cursor').forEach(c => c.remove());
+      const line = document.createElement('p');
+      line.innerHTML = html + (live ? ' <span class="cursor"></span>' : '');
+      bd.appendChild(line);
+      el.closest('.term').scrollTop = el.closest('.term').scrollHeight;
+    }
+
+    function closeThink(el, tokens) {
+      el.classList.remove('live', 'open');
+      el.classList.add('done');
+      el.querySelectorAll('.cursor').forEach(c => c.remove());
+      if (tokens) {
+        const hd = el.querySelector('.think-hd');
+        hd.insertAdjacentHTML('beforeend', `<span class="tk"><i class="fa-solid fa-coins"></i> ${tokens}</span>`);
+        addTokens(tokens);
+      }
+    }
+
+    async function startLoopUI() {
+      if (state.running) return;
+      state.abort = false; state.running = true; state.elapsed = 0;
+      setView('workspace');
+      const term = document.getElementById('loop-terminal');
+      term.innerHTML = '';
+      const start = document.getElementById('btn-start-loop');
+      const stop = document.getElementById('btn-stop-loop');
+      start.style.display = 'none';
+      stop.disabled = false;
+      stop.className = 'btn btn-danger';
+      stop.innerHTML = '<i class="fa-solid fa-stop"></i> Abortar Loop';
+      setMotor('run');
+      state.timer = setInterval(tick, 1000);
+
+      const wait = (ms) => new Promise(r => setTimeout(r, ms));
+      const log = (html) => {
+        term.insertAdjacentHTML('beforeend', `<div class="ln">${html}</div>`);
+        term.scrollTop = term.scrollHeight;
+      };
+
+      const models = {
+        lead: [document.getElementById('m-lead').textContent, document.getElementById('m-lead-t').textContent],
+        coder: [document.getElementById('m-coder').textContent, document.getElementById('m-coder-t').textContent],
+        qa: [document.getElementById('m-qa').textContent, document.getElementById('m-qa-t').textContent]
+      };
+
+      log('<span style="color:var(--gold-2);font-weight:600">ORQUESTRADOR ATIVO</span>');
+      log('<span style="color:var(--text-3)">Fase 2.2 · Validação Zod</span>');
+      await wait(400); if (state.abort) return abort();
+
+      updateAgent('techlead');
+      let th = openThink(term, { agent: 'Techlead', model: models.lead[0], thinking: models.lead[1], title: 'lendo contexto' });
+      writeThink(th, 'Abrindo PLAN.md e localizando a fase [-].', true);
+      await wait(650); if (state.abort) return abort();
+      writeThink(th, '2.1 já está [x]. Ativa: 2.2 Validação Zod. 2.3 ainda [ ].');
+      closeThink(th, 180);
+
+      th = openThink(term, { agent: 'Techlead', model: models.lead[0], thinking: models.lead[1], title: 'fatiando batch' });
+      writeThink(th, 'Isolando só o schema e os testes do submit.', true);
+      await wait(700); if (state.abort) return abort();
+      writeThink(th, 'Itens: Zod schema, mensagens, spec /entrar/i.');
+      closeThink(th, 270);
+      log('<div class="summary">Techlead · TODO_BATCH.md gerado · handoff → Coder</div>');
+
+      updateAgent('coder');
+      th = openThink(term, { agent: 'Coder · 1/3', model: models.coder[0], thinking: models.coder[1], title: 'lendo batch' });
+      writeThink(th, 'Abrindo LoginForm.tsx e o primeiro item do TODO_BATCH.', true);
+      await wait(600); if (state.abort) return abort();
+      writeThink(th, 'Schema Zod ainda não existe. Vou criar o arquivo.');
+      closeThink(th, 320);
+
+      th = openThink(term, { agent: 'Coder · 1/3', model: models.coder[0], thinking: models.coder[1], title: 'implementando' });
+      writeThink(th, 'Escrevendo schema e ligando o submit.', true);
+      await wait(800); if (state.abort) return abort();
+      writeThink(th, 'Rodando npm run test…');
+      closeThink(th, 920);
+      log('<span style="color:var(--danger);font-weight:600">✗ testes falharam · /entrar/i</span>');
+
+      updateAgent('qa');
+      th = openThink(term, { agent: 'Juiz TDD', model: models.qa[0], thinking: models.qa[1], title: 'lendo error.log' });
+      writeThink(th, 'Comparando a falha com o item ativo do batch.', true);
+      await wait(700); if (state.abort) return abort();
+      writeThink(th, 'O label do botão ainda não casa com /entrar/i.');
+      closeThink(th, 140);
+
+      th = openThink(term, { agent: 'Juiz TDD', model: models.qa[0], thinking: models.qa[1], title: 'veredito' });
+      writeThink(th, 'Falha esperada de TDD. Devolve ao Coder sem reabrir o batch.');
+      closeThink(th, 90);
+      log('<div class="summary">Juiz TDD · ESPERADO · devolve ao Coder</div>');
+
+      updateAgent('coder');
+      th = openThink(term, { agent: 'Coder · 2/3', model: models.coder[0], thinking: models.coder[1], title: 'diagnosticando' });
+      writeThink(th, 'error.log aponta o texto do submit.', true);
+      await wait(650); if (state.abort) return abort();
+      writeThink(th, 'Vou trocar o label e re-rodar o spec.');
+      closeThink(th, 210);
+
+      th = openThink(term, { agent: 'Coder · 2/3', model: models.coder[0], thinking: models.coder[1], title: 'corrigindo' });
+      writeThink(th, 'Aplicando correção e rodando testes…', true);
+      await wait(800); if (state.abort) return abort();
+      writeThink(th, 'Specs verdes. Fechando 2.2 e 2.3.');
+      closeThink(th, 640);
+      markPlan('2.2 Validação Zod');
+      markPlan('2.3 Mensagens de erro');
+      markPlan('Fase 2 — Autenticação UI');
+      activatePlan('Fase 3 — Integração API JWT');
+      activatePlan('3.1 POST /api/auth/login');
+      log('<div class="summary">Coder · fase 2 fechada · testes ok</div>');
+
+      updateAgent('techlead');
+      th = openThink(term, { agent: 'Techlead', model: models.lead[0], thinking: models.lead[1], title: 'próxima fase' });
+      writeThink(th, 'Fase 2 concluída. Abrindo 3.1 POST /api/auth/login.', true);
+      await wait(600); if (state.abort) return abort();
+      writeThink(th, 'Batch: client JWT + persistência do token.');
+      closeThink(th, 190);
+      log('<div class="summary">Techlead · TODO_BATCH.md da fase 3</div>');
+
+      updateAgent('coder');
+      th = openThink(term, { agent: 'Coder', model: models.coder[0], thinking: models.coder[1], title: 'integrando API' });
+      writeThink(th, 'Ligando o form em POST /api/auth/login.', true);
+      await wait(700); if (state.abort) return abort();
+      writeThink(th, 'Persistindo o token e cobrindo o happy path.');
+      closeThink(th, 880);
+      markPlan('3.1 POST /api/auth/login');
+      markPlan('3.2 Persistência do token');
+      markPlan('Fase 3 — Integração API JWT');
+      log('<div class="summary">Coder · fase 3 fechada · PLAN.md completo</div>');
+
+      resetLoopBtns();
+      log(`<div class="done-cta">
+        <p>Todas as fases do PLAN.md estão [x]. O loop encerrou.</p>
+        <button class="btn btn-gold" onclick="setView('chat-thread')"><i class="fa-solid fa-clipboard-user"></i> Voltar ao Planejador</button>
+      </div>`);
+
+      function abort() {
+        document.querySelectorAll('.think.live').forEach(el => closeThink(el));
+        log('<div class="abort-banner"><i class="fa-solid fa-ban"></i> Loop abortado</div>');
+        resetLoopBtns();
+      }
+    }
+
+    document.addEventListener('keydown', (e) => {
+      const meta = e.metaKey || e.ctrlKey;
+      if (meta && e.key.toLowerCase() === 'k') { e.preventDefault(); openPalette(); }
+      if (e.key === 'Escape') {
+        closePalette();
+        ['modal-settings','modal-history','modal-orchestrator'].forEach(id => closeModal(id));
+      }
+      if (meta && e.alt) { }
+      if (meta && !e.alt && e.key === '1') { e.preventDefault(); setView('chat-global'); }
+      if (meta && !e.alt && e.key === '2') { e.preventDefault(); setView('chat-thread'); }
+      if (meta && !e.alt && e.key === '3') { e.preventDefault(); setView('workspace'); }
+      if (meta && !e.alt && e.key === '4') { e.preventDefault(); goGraph(); }
+      if (meta && e.key.toLowerCase() === 'h') { e.preventDefault(); openHistory(state.view === 'chat-thread' ? 'thread' : 'global'); }
+      if (meta && e.key.toLowerCase() === 'b') { e.preventDefault(); toggleExplorer(); }
+    });
+
+    renderDocs();
+    if (location.hash === '#loop') setView('workspace');
+  </script>
+</body>
+</html>

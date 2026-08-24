@@ -17,7 +17,7 @@ export const EngineStatusSchema = z.enum([
 ]);
 export type EngineStatus = z.infer<typeof EngineStatusSchema>;
 
-export const AgentRoleSchema = z.enum(["planejador", "leitor", "techlead", "coder", "qa", "crise"]);
+export const AgentRoleSchema = z.enum(["planejador", "leitor", "techlead", "coder", "testador", "qa", "crise"]);
 export type AgentRole = z.infer<typeof AgentRoleSchema>;
 
 const statsSchema = z.object({
@@ -54,10 +54,21 @@ export const EngineEventSchema = z.discriminatedUnion("type", [
 
 export type EngineEvent = z.infer<typeof EngineEventSchema>;
 
+/** Modelos por papel de agente (espelho do engine/src/protocol.ts). */
+export type AgentModels = {
+  planejador?: string;
+  leitor?: string;
+  techlead?: string;
+  coder?: string;
+  testador?: string;
+  qa?: string;
+  crise?: string;
+};
+
 /** Comandos enviados da UI para o engine (mesmo formato do engine/src/protocol.ts). */
 export type EngineCommand =
-  | { type: "start"; projectDir: string }
-  | { type: "plan"; projectDir: string; prompt: string }
+  | { type: "start"; projectDir: string; models?: AgentModels }
+  | { type: "plan"; projectDir: string; prompt: string; models?: AgentModels }
   | { type: "pause" }
   | { type: "resume" }
   | { type: "inject"; text: string }

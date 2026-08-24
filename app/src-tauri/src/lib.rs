@@ -169,6 +169,53 @@ fn read_project_file(project_dir: String, rel_path: String) -> Result<String, St
     std::fs::read_to_string(&target_canonical).map_err(|e| format!("Falha ao ler {rel_path}: {e}"))
 }
 
+fn canonical_project(project_dir: &str) -> Result<std::path::PathBuf, String> {
+    std::path::PathBuf::from(project_dir)
+        .canonicalize()
+        .map_err(|e| format!("Diretório de projeto inválido: {e}"))
+}
+
+fn run_git(cwd: &std::path::Path, args: &[&str]) -> Result<String, String> {
+    let out = Command::new("git")
+        .args(args)
+        .current_dir(cwd)
+        .output()
+        .map_err(|e| format!("git: {e}"))?;
+    if !out.status.success() {
+        return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).to_string())
+}
+
+#[tauri::command]
+fn git_branches(project_dir: String) -> Result<serde_json::Value, String> {
+    let cwd = canonical_project(&project_dir)?;
+    let current = run_git(&cwd, &["branch", "--show-current"])?.trim().to_string();
+    let listed = run_git(&cwd, &["branch", "--format=%(refname:short)"])?;
+    let branches: Vec<String> = listed
+        .lines()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(String::from)
+        .collect();
+    Ok(serde_json::json!({ "current": current, "branches": branches }))
+}
+
+#[tauri::command]
+fn git_checkout_new(project_dir: String, name: String) -> Result<(), String> {
+    if !name
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-' | '/'))
+        || name.is_empty()
+        || name.contains("..")
+    {
+        return Err("Nome de branch inválido".into());
+    }
+    let cwd = canonical_project(&project_dir)?;
+    run_git(&cwd, &["checkout", "-b", &name])?;
+    Ok(())
+}
+
 /// Encerra o engine ao fechar a janela/app.
 fn kill_on_exit(app: &AppHandle) {
     if let Some(state) = app.try_state::<EngineState>() {
@@ -185,7 +232,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             engine_start,
             engine_send,
-            engine_stop
+            engine_stop,
+            read_project_file,
+            git_branches,
+            git_checkout_new
         ])
         .build(tauri::generate_context!())
         .expect("erro ao construir o app Tauri")

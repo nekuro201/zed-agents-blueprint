@@ -9,35 +9,57 @@ const agents: SidebarAgent[] = [
   { id: "lead", label: "Techlead", icon: ClipboardList, model: "grok-4-5", thinking: "Standard" },
 ];
 
+const defaults = {
+  agents,
+  hasPlan: true,
+  onStart: () => {},
+  activeLabel: "x",
+};
+
 describe("Sidebar", () => {
   it("mostra o workspace ativo e os agentes do roster", () => {
-    render(<Sidebar agents={agents} running={false} onStart={() => {}} onAbort={() => {}} activeLabel="feature/auth-ui" />);
-    expect(screen.getByText("feature/auth-ui")).toBeInTheDocument();
+    render(<Sidebar {...defaults} activeLabel="store-front" />);
+    expect(screen.getByText("store-front")).toBeInTheDocument();
     expect(screen.getByText("Planejador")).toBeInTheDocument();
     expect(screen.getByText("deepseek-v4-flash")).toBeInTheDocument();
   });
 
-  it("chama onStart ao clicar em Iniciar Loop", async () => {
+  it("sem PLAN.md Iniciar Loop fica disabled e não chama onStart", async () => {
     const onStart = vi.fn();
     const user = userEvent.setup();
-    render(<Sidebar agents={agents} running={false} onStart={onStart} onAbort={() => {}} activeLabel="x" />);
+    render(<Sidebar {...defaults} hasPlan={false} onStart={onStart} />);
+    const start = screen.getByRole("button", { name: /iniciar loop/i });
+    expect(start).toBeDisabled();
+    await user.click(start);
+    expect(onStart).not.toHaveBeenCalled();
+  });
+
+  it("com PLAN concluído (planComplete) Iniciar Loop fica disabled e avisa", () => {
+    const onStart = vi.fn();
+    render(<Sidebar {...defaults} hasPlan planComplete={true} onStart={onStart} />);
+    const start = screen.getByRole("button", { name: /iniciar loop/i });
+    expect(start).toBeDisabled();
+    expect(screen.getByText(/PLAN\.md concluído/i)).toBeInTheDocument();
+  });
+
+  it("com PLAN.md chama onStart ao clicar em Iniciar Loop", async () => {
+    const onStart = vi.fn();
+    const user = userEvent.setup();
+    render(<Sidebar {...defaults} hasPlan onStart={onStart} />);
     await user.click(screen.getByRole("button", { name: /iniciar loop/i }));
     expect(onStart).toHaveBeenCalledTimes(1);
   });
 
-  it("desabilita Abortar quando não está rodando", () => {
-    render(<Sidebar agents={agents} running={false} onStart={() => {}} onAbort={() => {}} activeLabel="x" />);
-    const abort = screen.getByRole("button", { name: /abortar/i });
-    expect(abort).toBeDisabled();
+  it("não mostra Pausar, Retomar, Parar nem Injetar", () => {
+    render(<Sidebar {...defaults} />);
+    expect(screen.queryByRole("button", { name: /pausar/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /retomar/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /parar/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /injetar/i })).not.toBeInTheDocument();
   });
 
-  it("habilita Abortar e chama onAbort quando está rodando", async () => {
-    const onAbort = vi.fn();
-    const user = userEvent.setup();
-    render(<Sidebar agents={agents} running onStart={() => {}} onAbort={onAbort} activeLabel="x" />);
-    const abort = screen.getByRole("button", { name: /abortar/i });
-    expect(abort).toBeEnabled();
-    await user.click(abort);
-    expect(onAbort).toHaveBeenCalledTimes(1);
+  it("tem botão de configuração da thread", () => {
+    render(<Sidebar {...defaults} onOpenSettings={() => {}} />);
+    expect(screen.getByRole("button", { name: /configurar thread/i })).toBeInTheDocument();
   });
 });

@@ -22,4 +22,13 @@ describe("TitleBar", () => {
     render(<TitleBar onOpenPalette={() => {}} tokensLabel="145.2k" />);
     expect(screen.getByText("145.2k")).toBeInTheDocument();
   });
+
+  it("mostra Projetos e chama onBackToProjects", async () => {
+    const onBack = vi.fn();
+    const user = userEvent.setup();
+    render(<TitleBar onOpenPalette={() => {}} onBackToProjects={onBack} subtitle="/ store" />);
+    expect(screen.getByText("/ store")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /projetos/i }));
+    expect(onBack).toHaveBeenCalledTimes(1);
+  });
 });

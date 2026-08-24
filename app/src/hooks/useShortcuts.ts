@@ -5,6 +5,7 @@ export interface ShortcutHandlers {
   onClosePalette: () => void;
   /** Recebe o número do atalho ⌘N (1..9); o chamador mapeia via viewByShortcut. */
   onSelectView: (shortcut: number) => void;
+  onToggleExplorer?: () => void;
 }
 
 /**
@@ -32,6 +33,11 @@ export function useShortcuts(handlers: ShortcutHandlers): void {
       if (e.key.toLowerCase() === "k") {
         e.preventDefault();
         ref.current.onTogglePalette();
+        return;
+      }
+      if (e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        ref.current.onToggleExplorer?.();
         return;
       }
       if (e.key >= "1" && e.key <= "9") {

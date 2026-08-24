@@ -128,9 +128,14 @@ function extractLastAssistant(session: AgentSession): { text: string; thinking: 
 function safeStats(session: AgentSession): AgentRunResult["stats"] {
   try {
     const stats = session.getSessionStats();
+    const t = stats?.tokens;
     return {
-      tokens: { input: stats.tokens.input, output: stats.tokens.output, total: stats.tokens.total },
-      cost: stats.cost,
+      tokens: {
+        input: typeof t?.input === "number" ? t.input : 0,
+        output: typeof t?.output === "number" ? t.output : 0,
+        total: typeof t?.total === "number" ? t.total : 0,
+      },
+      cost: typeof stats?.cost === "number" ? stats.cost : 0,
     };
   } catch {
     return undefined;
@@ -189,10 +194,11 @@ export async function agentRun(opts: AgentRunOptions): Promise<AgentRunResult> {
     await session.waitForIdle();
 
     const result = extractLastAssistant(session);
-    const stats = safeStats(session);
-    emit(opts, { type: "agent-end", role: opts.role, stats });
-    return { text: result.text, thinking: result.thinking, stats };
+    return { text: result.text, thinking: result.thinking, stats: safeStats(session) };
   } finally {
+    // Sempre fecha o card e contabiliza os tokens, mesmo se a sessão for
+    // abortada ou lançar erro — senão o consumo desses agentes some do total.
+    emit(opts, { type: "agent-end", role: opts.role, stats: safeStats(session) });
     detachAbort();
     unsub();
     session.dispose();
@@ -238,7 +244,7 @@ export async function structured<T>(opts: StructuredOptions<T>): Promise<T> {
       await applyModelBestEffort(session, opts.model, opts.onEvent);
 
       const fix = lastError
-        ? `\n\nATENÇÃO: a resposta anterior não foi um JSON válido. Erro: ${(lastError as Error).message}\nResponda NOVAMENTE, apenas com JSON envolto em um único bloco \`\`\`json.\``
+        ? `\n\nATENÇÃO: a resposta anterior não obedeceu ao formato JSON exigido. Erro: ${(lastError as Error).message}\nResponda NOVAMENTE com o JSON EXATO no formato pedido acima — apenas o JSON, sem texto, sem markdown, sem campos extras.`
         : "";
       await session.prompt(
         `${opts.prompt}${fix}\n\nResponda exclusivamente com um único bloco JSON (\`\`\`json ... \`\`\`). Nada além do JSON.`,
@@ -251,13 +257,15 @@ export async function structured<T>(opts: StructuredOptions<T>): Promise<T> {
 
       try {
         const parsed = opts.schema.parse(JSON.parse(extractJsonBlock(raw)));
-        emit(opts, { type: "agent-end", role: opts.role, stats: safeStats(session) });
         return parsed;
       } catch (err) {
         lastError = err;
         onEventLog(opts, `Parse estruturado falhou (tentativa ${attempt}/${MAX_PARSE_ATTEMPTS}): ${(err as Error).message}`);
       }
     } finally {
+      // Contabiliza os tokens mesmo em tentativa com parse inválido/abortada —
+      // antes, tentativas falhas (ex.: QA) não emitiam agent-end e o consumo sumia.
+      emit(opts, { type: "agent-end", role: opts.role, stats: safeStats(session) });
       detachAbort();
       unsub();
       session.dispose();

@@ -12,6 +12,7 @@ function state(partial: Partial<EngineUiState>): EngineUiState {
     version: null,
     status: "offline",
     running: false,
+    completed: false,
     elapsed: 0,
     tokens: { input: 0, output: 0, total: 0 },
     cost: 0,
@@ -19,6 +20,7 @@ function state(partial: Partial<EngineUiState>): EngineUiState {
     phase: null,
     error: null,
     timeline: [],
+    planning: false,
     ...partial,
   };
 }

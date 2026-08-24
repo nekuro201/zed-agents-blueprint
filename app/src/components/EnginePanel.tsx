@@ -1,37 +1,34 @@
-import type { EngineActions, EngineUiState } from "../hooks/useEngine";
-import { TriangleAlert } from "lucide-react";
-import { ProjectBar, pickDirectory } from "./ProjectBar";
-import { Controls } from "./Controls";
-import { PhaseProgress } from "./PhaseProgress";
-import { InjectBar } from "./InjectBar";
+import type { EngineUiState } from "../hooks/useEngine";
+import type { ProjectDocs } from "../hooks/useProjectDocs";
+import { ArrowLeft, CheckCircle2, TriangleAlert } from "lucide-react";
 import { LoopTerminal } from "./v5/LoopTerminal";
 import { DocInspectorPane } from "./v5/DocInspectorPane";
+import { LoopTop } from "./v5/LoopTop";
+import { pipelineFromTimeline } from "../lib/pipeline";
 
 /**
- * Painel do engine dentro do view "Loop" do Shell v5.
- * Concentra a UI de operação real (projeto, mock, controles, progresso,
- * injeção e terminal). Recebe estado/ações + projeto/modo por props — o App é a
- * fonte única de `useEngine` e do projeto-alvo (evita estado duplicado).
+ * Painel do Loop v5: loop-top (arts + pipeline) + work (terminal | inspector).
+ * `docs` vem do App (fonte única) para o inspector refletir o andamento do loop.
+ * Quando `completed` (todas as fases do PLAN.md concluídas), mostra a CTA de
+ * voltar para o Chat da Thread (como o `.done-cta` do protótipo v5).
  */
 export function EnginePanel({
   state,
-  actions,
   notTauri,
-  projectDir,
-  mock,
-  onProjectDirChange,
-  onMockChange,
+  docs,
+  planProgress = 0,
+  completed = false,
+  onStop,
+  onBackToChat,
 }: {
   state: EngineUiState;
-  actions: EngineActions;
   notTauri: boolean;
-  projectDir: string;
-  mock: boolean;
-  onProjectDirChange: (dir: string) => void;
-  onMockChange: (value: boolean) => void;
+  docs: ProjectDocs;
+  planProgress?: number;
+  completed?: boolean;
+  onStop?: () => void;
+  onBackToChat?: () => void;
 }) {
-  const canStart = projectDir.trim().length > 0 && !state.running;
-
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {notTauri && (
@@ -42,47 +39,32 @@ export function EnginePanel({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-3 border-b border-edge px-3 py-2.5">
-        <div className="min-w-[280px] flex-1">
-          <ProjectBar
-            value={projectDir}
-            onChange={onProjectDirChange}
-            onBrowse={async () => {
-              const dir = await pickDirectory();
-              if (dir) onProjectDirChange(dir);
-            }}
-          />
-        </div>
-        <label
-          className="flex items-center gap-1.5 text-xs text-zinc-400"
-          title="Roda um fluxo pré-gravado sem credenciais (PI_ENGINE_MOCK)"
-        >
-          <input
-            type="checkbox"
-            checked={mock}
-            onChange={(e) => onMockChange(e.target.checked)}
-          />
-          Modo simulado
-        </label>
-        <Controls
-          state={state}
-          onStart={() => void actions.start(projectDir.trim(), mock)}
-          onPause={() => void actions.pause()}
-          onResume={() => void actions.resume()}
-          onStop={() => void actions.stop()}
-          canStart={canStart}
-        />
-      </div>
-
-      {state.phase && state.phase.total > 0 && (
-        <div className="border-b border-edge px-3 py-2">
-          <PhaseProgress fase={state.phase.fase} total={state.phase.total} done={state.phase.done} pct={state.phase.pct} />
+      {completed && (
+        <div className="flex items-center justify-between gap-3 border-b border-emerald-900/60 bg-emerald-950/30 px-3 py-2 text-xs text-emerald-300">
+          <span className="inline-flex items-center gap-1.5 font-medium">
+            <CheckCircle2 size={14} aria-hidden /> Planos concluídos — todas as fases do PLAN.md foram entregues.
+          </span>
+          {onBackToChat && (
+            <button
+              type="button"
+              onClick={onBackToChat}
+              className="inline-flex items-center gap-1 rounded-md border border-emerald-700 bg-emerald-900/40 px-2.5 py-1 font-semibold text-emerald-200 transition-colors hover:bg-emerald-800/50"
+            >
+              <ArrowLeft size={12} aria-hidden /> Voltar para o Chat da Thread
+            </button>
+          )}
         </div>
       )}
 
-      <div className="border-b border-edge px-3 py-2">
-        <InjectBar enabled={state.running || state.status === "waiting"} onInject={(text) => void actions.inject(text)} />
-      </div>
+      <LoopTop
+        planProgress={planProgress}
+        elapsed={state.elapsed}
+        tokens={state.tokens.total}
+        cost={state.cost}
+        agents={pipelineFromTimeline(state.timeline)}
+        running={state.running}
+        onStop={onStop}
+      />
 
       {state.error && (
         <div className="border-b border-red-900 bg-red-950/30 px-3 py-2 text-xs font-medium text-red-300">
@@ -94,7 +76,7 @@ export function EnginePanel({
         <div className="min-h-0 overflow-hidden">
           <LoopTerminal items={state.timeline} />
         </div>
-        <DocInspectorPane projectDir={projectDir} />
+        <DocInspectorPane docs={docs} />
       </div>
     </div>
   );

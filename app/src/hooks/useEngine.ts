@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { engineSend, engineStart, engineStop, isTauri, onEngineEvent, onEngineExit, onEngineLog } from "../lib/engine";
-import { EngineEventSchema, type AgentRole, type EngineCommand, type EngineEvent, type EngineStatus } from "../lib/protocol";
+import { EngineEventSchema, type AgentModels, type AgentRole, type EngineCommand, type EngineEvent, type EngineStatus } from "../lib/protocol";
 
 export type ToolEvent = { tool: string; args: string; ok?: boolean; summary?: string };
 
@@ -35,6 +35,8 @@ export interface EngineUiState {
   status: EngineStatus | "idle" | "offline";
   detail?: string;
   running: boolean;
+  /** Verdadiero quando o loop terminou com TODAS as fases do PLAN.md concluídas. */
+  completed: boolean;
   /** 2.2.3 — duração do loop e acumuladores reais de tokens/custo. */
   elapsed: number;
   tokens: { input: number; output: number; total: number };
@@ -43,6 +45,7 @@ export interface EngineUiState {
   phase: { fase: string | null; total: number; done: number; pct: number } | null;
   error: string | null;
   timeline: TimelineItem[];
+  planning: boolean;
 }
 
 const initialState: EngineUiState = {
@@ -52,6 +55,7 @@ const initialState: EngineUiState = {
   version: null,
   status: "offline",
   running: false,
+  completed: false,
   elapsed: 0,
   tokens: { input: 0, output: 0, total: 0 },
   cost: 0,
@@ -59,6 +63,7 @@ const initialState: EngineUiState = {
   phase: null,
   error: null,
   timeline: [],
+  planning: false,
 };
 
 export { initialState };
@@ -123,12 +128,18 @@ function reduceUncapped(state: EngineUiState, action: Action): EngineUiState {
 
     case "status": {
       const base = setStatus(ev.status, ev.detail);
-      // Novo loop começa: zera acumuladores de duração/tokens/custo.
+      // `planning` é SÓ a geração do plano (composer). O "Lendo PLAN.md…" do início
+      // do loop NÃO conta como planning — senão travava e bloqueava o reload dos docs.
+      const planning = ev.status === "starting" && (ev.detail?.includes("gerando o PLAN.md") ?? false);
       if (ev.status === "starting") {
-        return { ...base, elapsed: 0, tokens: { input: 0, output: 0, total: 0 }, cost: 0 };
+        // Novo loop ou nova geração: reseta o estado de conclusão e os acumuladores.
+        return { ...base, elapsed: 0, tokens: { input: 0, output: 0, total: 0 }, cost: 0, completed: false, planning };
       }
-      return base;
+      return { ...base, planning: planning || (ev.status === "idle" ? false : state.planning) };
     }
+
+    case "plan-done":
+      return { ...state, planning: false, completed: false };
 
     case "phase":
       return { ...state, phase: { fase: ev.fase, total: ev.total, done: ev.done, pct: ev.pct } };
@@ -245,10 +256,10 @@ function reduceUncapped(state: EngineUiState, action: Action): EngineUiState {
       return withItem({ id: nextId++, kind: "log", level: ev.level, message: ev.message });
 
     case "error":
-      return { ...setStatus("error"), error: ev.message, timeline: [...tl, { id: nextId++, kind: "status", message: `❌ ${ev.message}` }] };
+      return { ...setStatus("error"), error: ev.message, planning: false, timeline: [...tl, { id: nextId++, kind: "status", message: `❌ ${ev.message}` }] };
 
     case "done":
-      return { ...setStatus("done"), timeline: [...tl, { id: nextId++, kind: "status", message: ev.message }] };
+      return { ...setStatus("done"), completed: true, timeline: [...tl, { id: nextId++, kind: "status", message: ev.message }] };
 
     case "exit":
       return { ...state, connected: false, running: false };
@@ -270,13 +281,13 @@ export function reducer(state: EngineUiState, action: Action): EngineUiState {
 }
 
 export interface EngineActions {
-  start: (projectDir: string, mock: boolean) => Promise<void>;
+  start: (projectDir: string, mock: boolean, models?: AgentModels) => Promise<void>;
   pause: () => Promise<void>;
   resume: () => Promise<void>;
   inject: (text: string) => Promise<void>;
   stop: () => Promise<void>;
   /** Pede ao engine para gerar o PLAN.md a partir do escopo escrito (composer do Planejador). */
-  generatePlan: (projectDir: string, prompt: string) => Promise<void>;
+  generatePlan: (projectDir: string, prompt: string, mock?: boolean, models?: AgentModels) => Promise<void>;
 }
 
 export function useEngine(): { state: EngineUiState; actions: EngineActions; notTauri: boolean } {
@@ -356,13 +367,16 @@ export function useEngine(): { state: EngineUiState; actions: EngineActions; not
 
   const actions: EngineActions = {
     start: useCallback(
-      async (projectDir, mock) => {
+      async (projectDir, mock, models) => {
         if (!isTauri()) return;
         try {
+          // Mata qualquer engine anterior (pode ter sido spawnado com outro mock/projeto)
+          // para garantir que o processo novo reflita as flags atuais.
+          await engineStop().catch(() => undefined);
           await engineStart(projectDir, mock);
-          await send({ type: "start", projectDir });
+          await send({ type: "start", projectDir, models });
         } catch (err) {
-          console.error("Falha ao iniciar engine", err);
+          dispatchRef.current({ type: "event", ev: { type: "error", message: (err as Error).message } });
         }
       },
       [send],
@@ -375,7 +389,17 @@ export function useEngine(): { state: EngineUiState; actions: EngineActions; not
       await engineStop().catch(() => undefined);
     }, [send]),
     generatePlan: useCallback(
-      (projectDir, prompt) => send({ type: "plan", projectDir, prompt }),
+      async (projectDir, prompt, mock = false, models) => {
+        if (!isTauri()) return;
+        try {
+          // Mesmo cuidado do start: processo antigo pode estar com --mock de outra sessão.
+          await engineStop().catch(() => undefined);
+          await engineStart(projectDir, mock);
+          await send({ type: "plan", projectDir, prompt, models });
+        } catch (err) {
+          dispatchRef.current({ type: "event", ev: { type: "error", message: (err as Error).message } });
+        }
+      },
       [send],
     ),
   };

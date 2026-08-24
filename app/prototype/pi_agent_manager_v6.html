@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pi Agent — V6</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-0: #111111;
+      --bg-1: #1a1a1a;
+      --bg-2: #212121;
+      --bg-3: #2a2a2a;
+      --bg-4: #333333;
+      --line: #2c2c2c;
+      --line-hi: #3d3d3d;
+      --text: #f2f2f2;
+      --text-2: #b3b3b3;
+      --text-3: #7a7a7a;
+      --gold: #d4af37;
+      --gold-2: #f0d060;
+      --gold-dim: rgba(212, 175, 55, 0.12);
+      --gold-glow: rgba(212, 175, 55, 0.28);
+      --ok: #6bcb8a;
+      --warn: #e0a54a;
+      --danger: #e85d5d;
+      --info: #8eb4d4;
+      --title: 38px;
+      --status: 28px;
+      --radius: 8px;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+      background: var(--bg-0);
+      color: var(--text-2);
+      overflow: hidden;
+      font-size: 13px;
+      letter-spacing: -0.01em;
+    }
+    button, input { font: inherit; color: inherit; }
+    button { cursor: pointer; background: none; border: 0; }
+    .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+    ::-webkit-scrollbar-thumb:hover { background: #4a4a4a; background-clip: padding-box; }
+
+    .app {
+      height: 100%;
+      display: grid;
+      grid-template-rows: var(--title) 1fr var(--status);
+      background:
+        radial-gradient(1200px 480px at 12% -10%, rgba(212,175,55,0.06), transparent 55%),
+        var(--bg-0);
+    }
+    .app.workspace-open { grid-template-rows: var(--title) 1fr; }
+
+    .titlebar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 12px 0 14px;
+      background: linear-gradient(180deg, #1e1e1e, var(--bg-1));
+      border-bottom: 1px solid var(--line);
+      -webkit-app-region: drag;
+      user-select: none;
+    }
+    .titlebar > * { -webkit-app-region: no-drag; }
+    .traffic { display: flex; gap: 7px; }
+    .traffic i {
+      width: 11px; height: 11px; border-radius: 50%;
+      display: block;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+    }
+    .traffic .c { background: #ff5f57; }
+    .traffic .m { background: #febc2e; }
+    .traffic .x { background: #28c840; }
+    .brand {
+      display: flex; align-items: center; gap: 8px;
+      color: var(--text); font-weight: 600; font-size: 12.5px;
+    }
+    .mark {
+      width: 18px; height: 18px; border-radius: 5px;
+      display: grid; place-items: center;
+      background: linear-gradient(160deg, var(--gold-2), var(--gold));
+      color: #1a1a1a; font-size: 9px;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 0 16px var(--gold-glow);
+    }
+    .muted { color: var(--text-3); font-weight: 500; }
+    .spacer { flex: 1; }
+    .chip {
+      display: inline-flex; align-items: center; gap: 7px;
+      height: 24px; padding: 0 10px; border-radius: 999px;
+      background: var(--bg-2); border: 1px solid var(--line-hi);
+      color: var(--text-2); font-size: 11px;
+    }
+    .chip b { color: var(--text); font-weight: 600; }
+    .chip.gold { border-color: rgba(212,175,55,0.35); background: var(--gold-dim); color: var(--gold-2); }
+    .chip.gold i { color: var(--gold); }
+    .kbtn {
+      height: 24px; padding: 0 8px; border-radius: 6px;
+      border: 1px solid var(--line-hi); background: var(--bg-2);
+      color: var(--text-3); font-size: 11px;
+      display: inline-flex; align-items: center; gap: 6px;
+      transition: border-color .15s var(--ease), color .15s var(--ease), background .15s var(--ease);
+    }
+    .kbtn:hover { color: var(--text); border-color: var(--gold); background: var(--gold-dim); }
+    .user { display: flex; align-items: center; gap: 7px; color: var(--text-2); font-size: 12px; }
+    .avatar {
+      width: 20px; height: 20px; border-radius: 50%;
+      background: linear-gradient(160deg, #4a4a4a, #2a2a2a);
+      border: 1px solid var(--line-hi);
+      display: grid; place-items: center; font-size: 9px; color: var(--gold);
+    }
+
+    .home {
+      min-height: 0;
+      overflow: auto;
+      display: flex;
+      justify-content: center;
+      padding: 48px 24px 32px;
+    }
+    .home-wrap {
+      width: min(720px, 100%);
+      animation: in .22s var(--ease);
+    }
+    @keyframes in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+    .hero {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .hero .logo {
+      width: 44px; height: 44px; border-radius: 12px; margin: 0 auto 14px;
+      display: grid; place-items: center;
+      background: linear-gradient(160deg, var(--gold-2), var(--gold));
+      color: #1a1a1a; font-size: 18px;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 12px 36px var(--gold-glow);
+    }
+    .hero h1 { color: var(--text); font-size: 22px; font-weight: 700; letter-spacing: -0.03em; }
+    .hero p { margin-top: 6px; color: var(--text-3); font-size: 13px; }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+    .action {
+      text-align: left;
+      padding: 16px;
+      border-radius: 10px;
+      border: 1px solid var(--line-hi);
+      background: var(--bg-1);
+      transition: border-color .15s var(--ease), background .15s var(--ease), transform .12s var(--ease);
+    }
+    .action:hover { border-color: rgba(212,175,55,0.4); background: var(--gold-dim); }
+    .action:active { transform: translateY(1px); }
+    .action i {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: grid; place-items: center;
+      background: var(--bg-3); color: var(--gold); margin-bottom: 10px;
+    }
+    .action.featured i {
+      background: linear-gradient(160deg, var(--gold-2), var(--gold));
+      color: #1a1a1a;
+    }
+    .action b { display: block; color: var(--text); font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+    .action span { color: var(--text-3); font-size: 11.5px; line-height: 1.4; }
+
+    .sec-title {
+      font-size: 10px; font-weight: 700; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--text-3); margin-bottom: 10px;
+    }
+    .recents { display: flex; flex-direction: column; gap: 6px; }
+    .empty-recents {
+      padding: 22px 16px;
+      border: 1px dashed var(--line-hi);
+      border-radius: 10px;
+      text-align: center;
+      color: var(--text-3);
+      font-size: 12px;
+    }
+
+    .project {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 36px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 12px 12px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #171717;
+      text-align: left;
+      transition: border-color .15s, background .15s;
+    }
+    .project:hover { border-color: var(--line-hi); background: var(--bg-2); }
+    .project .ico {
+      width: 36px; height: 36px; border-radius: 8px;
+      display: grid; place-items: center;
+      background: var(--bg-3); color: var(--gold);
+    }
+    .project .name { color: var(--text); font-weight: 600; font-size: 13px; }
+    .project .path {
+      margin-top: 2px;
+      color: var(--text-3);
+      font-size: 11px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .project .meta { color: var(--text-3); font-size: 10.5px; text-align: right; }
+    .project .rm {
+      width: 26px; height: 26px; border-radius: 6px; color: var(--text-3);
+      display: grid; place-items: center; margin-left: 8px;
+    }
+    .project .rm:hover { color: var(--danger); background: rgba(232,93,93,0.12); }
+    .project-side { display: flex; align-items: center; }
+
+    .workspace { display: none; min-height: 0; }
+    .workspace.on { display: block; }
+    .home.off { display: none; }
+    .workspace iframe {
+      width: 100%; height: 100%;
+      border: 0; background: var(--bg-0); display: block;
+    }
+
+    .statusbar {
+      display: flex; align-items: center; gap: 14px;
+      padding: 0 12px; background: #141414; border-top: 1px solid var(--line);
+      font-size: 11px; color: var(--text-3);
+    }
+    .statusbar .live { display: flex; align-items: center; gap: 6px; }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: #6a6a6a; }
+    .dot.on { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+    .statusbar .sep { width: 1px; height: 12px; background: var(--line-hi); }
+    .statusbar .grow { margin-left: auto; }
+
+    .overlay {
+      position: fixed; inset: 0; z-index: 50;
+      background: rgba(10,10,10,0.62); backdrop-filter: blur(8px);
+      display: none; place-items: center;
+    }
+    .overlay.on { display: grid; }
+    .modal {
+      width: min(520px, calc(100vw - 32px));
+      background: var(--bg-2); border: 1px solid var(--line-hi);
+      border-radius: 12px; box-shadow: 0 30px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(212,175,55,0.08);
+      overflow: hidden; animation: in .2s var(--ease);
+    }
+    .modal header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px; border-bottom: 1px solid var(--line); background: #1c1c1c;
+    }
+    .modal header h3 { color: var(--text); font-size: 13px; display: flex; gap: 8px; align-items: center; }
+    .modal header h3 i { color: var(--gold); }
+    .modal .body { padding: 16px; display: grid; gap: 12px; }
+    .modal footer {
+      display: flex; justify-content: flex-end; gap: 8px;
+      padding: 12px 16px; border-top: 1px solid var(--line); background: #1c1c1c;
+    }
+    .field { display: grid; gap: 6px; }
+    .field label { font-size: 11px; font-weight: 600; color: var(--text-3); letter-spacing: .04em; text-transform: uppercase; }
+    .field input {
+      height: 36px; padding: 0 10px; border-radius: 7px;
+      background: #121212; border: 1px solid var(--line-hi); outline: none; color: var(--text);
+    }
+    .field input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-dim); }
+    .path-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+    .ghost { height: 32px; padding: 0 12px; border-radius: 7px; color: var(--text-2); }
+    .ghost:hover { color: var(--text); }
+    .primary {
+      height: 32px; padding: 0 14px; border-radius: 7px;
+      background: var(--gold); color: #1a1a1a; font-weight: 600;
+    }
+    .primary:disabled { opacity: .4; cursor: not-allowed; }
+    .icon-btn {
+      width: 26px; height: 26px; border-radius: 6px; color: var(--text-3);
+      display: grid; place-items: center;
+    }
+    .icon-btn:hover { color: var(--gold-2); background: var(--gold-dim); }
+    .hint { font-size: 11.5px; color: var(--text-3); }
+
+    @media (max-width: 640px) {
+      .actions { grid-template-columns: 1fr; }
+      .home { padding: 28px 16px 24px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <header class="titlebar">
+      <div class="traffic" aria-hidden="true"><i class="c"></i><i class="m"></i><i class="x"></i></div>
+      <div class="brand">
+        <span class="mark"><i class="fa-solid fa-layer-group"></i></span>
+        Pi Agent <span class="muted" id="brand-sub">/ projetos</span>
+      </div>
+      <div class="spacer"></div>
+      <button class="kbtn" id="btn-close" hidden onclick="closeProject()"><i class="fa-solid fa-arrow-left"></i> Projetos</button>
+      <div class="chip gold"><i class="fa-solid fa-coins"></i><span>Global</span> <b>145.2k</b></div>
+      <div class="user"><span class="avatar">A</span> Abe</div>
+    </header>
+
+    <section class="home" id="home">
+      <div class="home-wrap">
+        <div class="hero">
+          <div class="logo"><i class="fa-solid fa-layer-group"></i></div>
+          <h1>Abrir um projeto</h1>
+          <p>Escolha uma pasta para começar, ou continue de onde parou.</p>
+        </div>
+
+        <div class="actions">
+          <button class="action featured" onclick="openNewModal()">
+            <i class="fa-solid fa-plus"></i>
+            <b>Novo projeto</b>
+            <span>Cria um workspace a partir de uma pasta no disco.</span>
+          </button>
+          <button class="action" onclick="openExisting()">
+            <i class="fa-solid fa-folder-open"></i>
+            <b>Abrir pasta</b>
+            <span>Seleciona um projeto já existente no computador.</span>
+          </button>
+        </div>
+
+        <div class="sec-title">Recentes</div>
+        <div class="recents" id="recents"></div>
+      </div>
+    </section>
+
+    <section class="workspace" id="workspace">
+      <iframe id="workspace-frame" title="Pi Agent workspace"></iframe>
+    </section>
+
+    <footer class="statusbar" id="statusbar">
+      <span class="live"><span class="dot on"></span> Motor conectado</span>
+      <span class="sep"></span>
+      <span id="status-path">Nenhum projeto aberto</span>
+      <span class="grow"></span>
+      <span class="mono">Pi · v6</span>
+    </footer>
+  </div>
+
+  <div class="overlay" id="modal-new" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+      <header>
+        <h3><i class="fa-solid fa-folder-plus"></i> Novo projeto</h3>
+        <button class="icon-btn" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+      </header>
+      <div class="body">
+        <p class="hint">Escolha a pasta do projeto. O workspace abre com o mesmo app da v5.</p>
+        <div class="field">
+          <label for="proj-name">Nome</label>
+          <input id="proj-name" placeholder="Frontend E-commerce" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="proj-path">Pasta</label>
+          <div class="path-row">
+            <input id="proj-path" class="mono" placeholder="~/www/meu-projeto" autocomplete="off" />
+            <button class="kbtn" type="button" onclick="pickFolder()"><i class="fa-solid fa-folder"></i> Escolher</button>
+          </div>
+        </div>
+      </div>
+      <footer>
+        <button class="ghost" onclick="closeModal()">Cancelar</button>
+        <button class="primary" id="btn-open-new" onclick="confirmNew()">Abrir projeto</button>
+      </footer>
+    </div>
+  </div>
+
+  <script>
+    const KEY = 'pi-v6-recents';
+    const SEED = [
+      { name: 'Frontend E-commerce', path: '~/www/nekuro/store-front', openedAt: Date.now() - 2 * 3600e3 },
+      { name: 'Backend API Hub', path: '~/www/nekuro/api-hub', openedAt: Date.now() - 26 * 3600e3 }
+    ];
+
+    const state = { projects: load(), current: null, pickingExisting: false };
+
+    function load() {
+      try {
+        const raw = localStorage.getItem(KEY);
+        if (raw) return JSON.parse(raw);
+      } catch {}
+      return SEED.slice();
+    }
+
+    function save() {
+      localStorage.setItem(KEY, JSON.stringify(state.projects));
+    }
+
+    function ago(ts) {
+      const d = Math.max(0, Date.now() - ts);
+      const m = Math.floor(d / 60000);
+      if (m < 1) return 'agora';
+      if (m < 60) return `há ${m} min`;
+      const h = Math.floor(m / 60);
+      if (h < 24) return `há ${h}h`;
+      const days = Math.floor(h / 24);
+      return days === 1 ? 'ontem' : `há ${days} dias`;
+    }
+
+    function folderName(path) {
+      return path.replace(/\\/g, '/').split('/').filter(Boolean).pop() || path;
+    }
+
+    function renderRecents() {
+      const el = document.getElementById('recents');
+      if (!state.projects.length) {
+        el.innerHTML = '<div class="empty-recents">Nenhum projeto recente. Abra uma pasta para começar.</div>';
+        return;
+      }
+      el.innerHTML = state.projects.map((p, i) => `
+        <div class="project" role="button" tabindex="0" onclick="openProject(${i})">
+          <div class="ico"><i class="fa-solid fa-code-branch"></i></div>
+          <div>
+            <div class="name">${p.name}</div>
+            <div class="path mono">${p.path}</div>
+          </div>
+          <div class="project-side">
+            <div class="meta">${ago(p.openedAt)}</div>
+            <button class="rm" title="Remover" onclick="event.stopPropagation(); removeProject(${i})"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function upsert(project) {
+      state.projects = state.projects.filter(p => p.path !== project.path);
+      state.projects.unshift({ ...project, openedAt: Date.now() });
+      save();
+      renderRecents();
+    }
+
+    function removeProject(i) {
+      state.projects.splice(i, 1);
+      save();
+      renderRecents();
+    }
+
+    function openNewModal() {
+      state.pickingExisting = false;
+      document.getElementById('proj-name').value = '';
+      document.getElementById('proj-path').value = '';
+      document.getElementById('modal-new').classList.add('on');
+      document.getElementById('proj-name').focus();
+    }
+
+    function openExisting() {
+      state.pickingExisting = true;
+      document.getElementById('proj-name').value = '';
+      document.getElementById('proj-path').value = '';
+      document.getElementById('modal-new').classList.add('on');
+      pickFolder();
+    }
+
+    function closeModal() {
+      document.getElementById('modal-new').classList.remove('on');
+    }
+
+    async function pickFolder() {
+      const name = document.getElementById('proj-name');
+      const path = document.getElementById('proj-path');
+      if (window.showDirectoryPicker) {
+        try {
+          const dir = await window.showDirectoryPicker();
+          path.value = dir.name;
+          if (!name.value) name.value = dir.name;
+          return;
+        } catch {
+          return;
+        }
+      }
+      path.focus();
+    }
+
+    function confirmNew() {
+      const name = document.getElementById('proj-name').value.trim();
+      const path = document.getElementById('proj-path').value.trim();
+      if (!path) {
+        document.getElementById('proj-path').focus();
+        return;
+      }
+      closeModal();
+      openProjectData({ name: name || folderName(path), path });
+    }
+
+    function openProject(i) {
+      openProjectData(state.projects[i]);
+    }
+
+    function openProjectData(project) {
+      upsert(project);
+      state.current = project;
+      document.getElementById('home').classList.add('off');
+      document.getElementById('workspace').classList.add('on');
+      document.getElementById('app').classList.add('workspace-open');
+      document.getElementById('btn-close').hidden = false;
+      document.getElementById('brand-sub').textContent = '/ ' + project.name;
+      document.getElementById('status-path').textContent = project.path;
+      const frame = document.getElementById('workspace-frame');
+      frame.src = './pi_agent_manager_v5.html';
+      frame.onload = () => embedV5(frame);
+    }
+
+    function embedV5(frame) {
+      const doc = frame.contentDocument;
+      if (!doc) return;
+      const style = doc.createElement('style');
+      style.textContent = `
+        .titlebar, .statusbar { display: none !important; }
+        .app { grid-template-rows: 1fr !important; height: 100% !important; }
+        .shell { height: 100%; }
+      `;
+      doc.head.appendChild(style);
+    }
+
+    function closeProject() {
+      state.current = null;
+      const frame = document.getElementById('workspace-frame');
+      frame.removeAttribute('src');
+      document.getElementById('home').classList.remove('off');
+      document.getElementById('workspace').classList.remove('on');
+      document.getElementById('app').classList.remove('workspace-open');
+      document.getElementById('btn-close').hidden = true;
+      document.getElementById('brand-sub').textContent = '/ projetos';
+      document.getElementById('status-path').textContent = 'Nenhum projeto aberto';
+      renderRecents();
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeModal();
+    });
+
+    renderRecents();
+  </script>
+</body>
+</html>
