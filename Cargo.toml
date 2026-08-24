@@ -1,0 +1,17 @@
+# Manifest virtual de workspace (raiz do repositório).
+#
+# O único crate é o shell Tauri do app (`app/src-tauri`). Declarar o workspace
+# aqui faz o `cargo`/rust-analyzer descobrirem o projeto a partir da raiz,
+# inclusive quando o Zed abre o repositório inteiro (corrige:
+# "rust-analyzer: Failed to discover workspace").
+[workspace]
+members = ["app/src-tauri"]
+resolver = "2"
+
+# Perfil de release compartilhado (era definido no member; foi movido aqui,
+# porque em workspace o [profile] só vale no manifest raiz).
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+strip = true
