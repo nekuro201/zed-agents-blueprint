@@ -35,7 +35,9 @@ function ViewPlaceholder({ view }: { view: ViewId }) {
   const message =
     view === "chat-thread"
       ? "Assistente da thread — histórico real na Fase C (2.1.1 placeholder)."
-      : "Pergunte sobre o escopo geral do projeto.";
+      : view === "graph"
+        ? "Visual do Graphify embutido — gere um grafo para começar."
+        : "Pergunte sobre o escopo geral do projeto.";
   const Icon = VIEWS.find((v) => v.id === view)!.icon;
   return (
     <div className="flex flex-1 flex-col">
@@ -62,6 +64,7 @@ export function Shell({
   onViewChange,
   workspaceView,
   threadView,
+  graphView,
   statusBar,
   tokensLabel = "0",
   workspaceName,
@@ -72,12 +75,15 @@ export function Shell({
   explorerHasGit = true,
   explorerOpen = true,
   onToggleExplorer,
+  onGenerateGraph,
+  onViewGraph,
 }: {
   /** View controlada por fora (App). Se ausente, o Shell controla internamente. */
   view?: ViewId;
   onViewChange?: (v: ViewId) => void;
   workspaceView?: ReactNode;
   threadView?: ReactNode;
+  graphView?: ReactNode;
   statusBar?: ReactNode;
   tokensLabel?: string;
   workspaceName?: string;
@@ -88,6 +94,8 @@ export function Shell({
   explorerHasGit?: boolean;
   explorerOpen?: boolean;
   onToggleExplorer?: () => void;
+  onGenerateGraph?: () => void;
+  onViewGraph?: () => void;
 }) {
   const internal = useActiveView();
   const view = viewProp ?? internal.view;
@@ -104,6 +112,8 @@ export function Shell({
       if (id) setView(id);
     },
     onToggleExplorer,
+    onGenerateGraph,
+    onViewGraph,
   });
 
   return (
@@ -121,7 +131,9 @@ export function Shell({
             ? workspaceView
             : view === "chat-thread" && threadView
               ? threadView
-              : <ViewPlaceholder view={view} />}
+              : view === "graph" && graphView
+                ? graphView
+                : <ViewPlaceholder view={view} />}
         </main>
         <ExplorerTree
           groups={explorerGroups}

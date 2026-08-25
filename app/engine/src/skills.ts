@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { Repo, computeGraphStaleness } from "./repo.js";
 
 export type SkillName = "planejador" | "techlead" | "coder" | "testador";
 
@@ -72,6 +73,22 @@ export async function buildSkillPrompt(opts: {
   if (agentsMd) {
     blocks.push(
       `Este é o AGENTS.md do projeto (fonte da verdade arquitetural — siga estritamente):\n\n${agentsMd}`,
+    );
+  }
+
+  // Grafo de conhecimento (Graphify) = auxílio de navegação, NUNCA fonte da
+  // verdade. Injetamos apenas o resumo compacto (GRAPH_REPORT.md) — nunca o
+  // graph.json inteiro — e deixamos claro que ele pode estar atrasado. Quando o
+  // detector de staleness acusar mudanças, avisamos explicitamente o agente para
+  // confirmar com read antes de editar.
+  const graphReport = await new Repo(projectDir).read(path.join("graphify-out", "GRAPH_REPORT.md"));
+  if (graphReport) {
+    const staleness = await computeGraphStaleness(projectDir);
+    const staleWarning = staleness.stale
+      ? `\n\nAVISO: este mapa está DESATUALIZADO — ${staleness.changedCount} arquivo(s) do código mudaram após a geração. Confirme com read antes de editar.`
+      : "";
+    blocks.push(
+      `Este é o mapa de arquitetura (pode estar atrasado) do projeto — use-o como auxílio de navegação e confirme com read antes de editar:${staleWarning}\n\n${graphReport}`,
     );
   }
 

@@ -11,7 +11,7 @@
 ## Contexto / Decisões (não reabrir)
 
 - **Grafo = auxílio de navegação, nunca fonte da verdade.** Arquivos reais (read/bash) continuam soberanos; skill manda confirmar com `read` antes de editar.
-- Gerar `graphify .` no **open do workspace** e no **fim de cada fase** (código commitado → grafo fresco para a fase seguinte). **Degradação graciosa** se o `graphifyy` não estiver instalado.
+- Gerar o grafo no **open do workspace** e no **fim de cada fase** (código commitado → grafo fresco para a fase seguinte). **Degradação graciosa** se o binário `graphify` não estiver instalado. Invocação: **`graphify update <projectDir>`** (subcomando determinístico, AST puro, sem chave LLM) — **nunca** `graphify .` (pipeline completo que exige API key em repos com docs/papers/imagens).
 - Injetar **apenas** o `GRAPH_REPORT.md` (resumo compacto) junto com `AGENTS.md` no `buildSkillPrompt` — **nunca** o `graph.json` inteiro no prompt.
 - **Viewer do grafo = iframe** exibindo o `graph.html` do projeto-alvo (não desenhar o grafo à mão). Webview do Tauri bloqueia `file://` → servir o conteúdo via comando `read_graph_file` (somente leitura, mesma guarda de path do `read_project_file`) + `srcdoc`; se assets relativos quebrarem, partir para protocolo custom.
 - UI sem emojis (lucide-react, como o resto). Fora de escopo: dropdown de modelos/settings — esta fase não mexe nisso.
@@ -21,73 +21,73 @@
 
 ## [x] Fase 1 — Protótipo de UI/UX do grafo (validar antes) [🛠️ Pro-Standard]
 
-### [ ] 1.1 Protótipo `prototype/pi_graph2.html` (arquivo único html/css/js)
-- [ ] Local do viewer na UI (entrada no rail "Grafo") + toolbar **Ver grafo / Atualizar / Simular alterações / Nova aba / Gerar** + atalhos **⌘G** (gerar) e **⌘V** (ver).
-- [ ] Estados: sem grafo (empty com CTA) → gerando (progresso simulado) → com grafo (iframe com `graph.html`/amostra) → **desatualizado** (chip + ação Atualizar).
-- [ ] Iframe como estratégia de exibição (não desenhar o grafo manualmente).
-- [ ] Validar com o usuário antes de implementar (aprovar/ajustar).
+### [x] 1.1 Protótipo `prototype/pi_graph2.html` (arquivo único html/css/js)
+- [x] Local do viewer na UI (entrada no rail "Grafo") + toolbar **Ver grafo / Atualizar / Simular alterações / Nova aba / Gerar** + atalhos **⌘G** (gerar) e **⌘V** (ver).
+- [x] Estados: sem grafo (empty com CTA) → gerando (progresso simulado) → com grafo (iframe com `graph.html`/amostra) → **desatualizado** (chip + ação Atualizar).
+- [x] Iframe como estratégia de exibição (não desenhar o grafo manualmente).
+- [x] Validar com o usuário antes de implementar (aprovar/ajustar).
 
 ---
 
-## [ ] Fase 2 — Geração do grafo no engine [🛠️ Pro-Standard]
+## [x] Fase 2 — Geração do grafo no engine [🛠️ Pro-Standard]
 
-### [ ] 2.1 RED — comando `graph` + runner
-- [ ] Teste: `graphify .` é executado no projectDir (spawn); binário ausente → `ok:false` gracioso (sem quebrar o loop).
+### [x] 2.1 RED — comando `graph` + runner
+- [x] Teste: `graphify update <projectDir>` é executado no projectDir (spawn); binário ausente → `ok:false` gracioso (sem quebrar o loop).
 
-### [ ] 2.2 GREEN
-- [ ] Comando `graph` no protocolo (engine + espelho no frontend) + handler no `index.ts`.
-- [ ] Runner `runGraphify(projectDir)` (spawn com timeout, captura stdout, confere se `GRAPH_REPORT.md`/`graph.json` foram criados).
-- [ ] Eventos `graph-start` / `graph-ready` / `graph-error`.
+### [x] 2.2 GREEN
+- [x] Comando `graph` no protocolo (engine + espelho no frontend) + handler no `index.ts`.
+- [x] Runner `runGraphify(projectDir)` (spawn com timeout, captura stdout, confere se `GRAPH_REPORT.md`/`graph.json` foram criados).
+- [x] Eventos `graph-start` / `graph-ready` / `graph-error`.
 
-### [ ] 2.3 RED — gatilhos open + fim de fase
-- [ ] Teste (mock): open do workspace e fim de fase (fase commitada) disparam a geração.
+### [x] 2.3 RED — gatilhos open + fim de fase
+- [x] Teste (mock): open do workspace e fim de fase (fase commitada) disparam a geração.
 
-### [ ] 2.4 GREEN
-- [ ] Engine: gatilho no `ready` (open do workspace) e no fim de cada fase bem-sucedida em `runOrchestrator`.
-- [ ] UI: botão "Regenerar grafo" → comando `graph`.
-
----
-
-## [ ] Fase 3 — Injeção do GRAPH_REPORT + regra nas skills [⚡ Flash]
-
-### [ ] 3.1 RED
-- [ ] `buildSkillPrompt` inclui `GRAPH_REPORT.md` quando presente e o ignora quando ausente.
-
-### [ ] 3.2 GREEN
-- [ ] Ler `GRAPH_REPORT.md` via `Repo` e injetar no bloco de contexto (junto com AGENTS.md), rotulado como "mapa de arquitetura (pode estar atrasado)".
-- [ ] Regra curta na skill do Coder/Testador: usar `graphify query` quando `graph.json` existir; **confirmar com `read`** antes de editar.
+### [x] 2.4 GREEN
+- [x] Engine: gatilho no `ready` (open do workspace) e no fim de cada fase bem-sucedida em `runOrchestrator`.
+- [x] UI: botão "Regenerar grafo" → comando `graph`.
 
 ---
 
-## [ ] Fase 4 — Viewer do grafo no app [🛠️ Pro-Standard]
+## [x] Fase 3 — Injeção do GRAPH_REPORT + regra nas skills [⚡ Flash]
 
-### [ ] 4.1 RED
-- [ ] UI: ação "Ver grafo" abre o viewer; estados sem/com grafo e desatualizado espelham o protótipo (Fase 1).
-- [ ] Comando `read_graph_file` (somente leitura) devolve `graph.html` dentro do projectDir (mesma guarda anti `../`).
+### [x] 3.1 RED
+- [x] `buildSkillPrompt` inclui `GRAPH_REPORT.md` quando presente e o ignora quando ausente.
 
-### [ ] 4.2 GREEN
-- [ ] Rust: comando `read_graph_file` (path canônico + guarda). Frontend carrega via **iframe `srcdoc`** com o conteúdo do `graph.html`.
-- [ ] Toolbar do graph2 (**Ver grafo / Atualizar / Simular alterações / Nova aba / Gerar**) + badges de estado (`sem grafo` / `gerando` / `atualizado` / `desatualizado`) + banner de staleness + atalhos **⌘G**/**⌘V**.
-- [ ] Testes do viewer (render com/sem grafo, srcdoc recebido).
+### [x] 3.2 GREEN
+- [x] Ler `GRAPH_REPORT.md` via `Repo` e injetar no bloco de contexto (junto com AGENTS.md), rotulado como "mapa de arquitetura (pode estar atrasado)".
+- [x] Regra curta na skill do Coder/Testador: usar `graphify query` quando `graph.json` existir; **confirmar com `read`** antes de editar.
 
 ---
 
-## [ ] Fase 5 — Detector de staleness [⚡ Flash]
+## [x] Fase 4 — Viewer do grafo no app [🛠️ Pro-Standard]
 
-### [ ] 5.1 RED
-- [ ] `graph.json` mais velho que a fonte mais nova → `stale=true`.
+### [x] 4.1 RED
+- [x] UI: ação "Ver grafo" abre o viewer; estados sem/com grafo e desatualizado espelham o protótipo (Fase 1).
+- [x] Comando `read_graph_file` (somente leitura) devolve `graph.html` dentro do projectDir (mesma guarda anti `../`).
 
-### [ ] 5.2 GREEN
-- [ ] Helper de mtime (`repo.ts`/lib) exposto na UI: chip **"Grafo desatualizado — N arquivos mudaram"** + botão Atualizar (comando `graph`).
-- [ ] Quando stale, aviso no prompt dos agents ("o mapa pode estar atrasado — confirme com `read`").
+### [x] 4.2 GREEN
+- [x] Rust: comando `read_graph_file` (path canônico + guarda). Frontend carrega via **iframe `srcdoc`** com o conteúdo do `graph.html`.
+- [x] Toolbar do graph2 (**Ver grafo / Atualizar / Simular alterações / Nova aba / Gerar**) + badges de estado (`sem grafo` / `gerando` / `atualizado` / `desatualizado`) + banner de staleness + atalhos **⌘G**/**⌘V**.
+- [x] Testes do viewer (render com/sem grafo, srcdoc recebido).
 
 ---
 
-## [ ] Fase 6 — Integração & validação [⚡ Flash]
+## [x] Fase 5 — Detector de staleness [⚡ Flash]
 
-- [ ] Fluxo ponta a ponta (real e mock): open → grafo gerado (se `graphifyy`) → agents recebem GRAPH_REPORT → viewer abre por iframe → chip de staleness correto.
-- [ ] `pnpm test`, `tsc --noEmit`, `vite build`, smoke test do protocolo.
-- [ ] Atualizar `AGENTS.md`/`ESCOPO.md` se surgir decisão nova.
+### [x] 5.1 RED
+- [x] `graph.json` mais velho que a fonte mais nova → `stale=true`.
+
+### [x] 5.2 GREEN
+- [x] Helper de mtime (`repo.ts`/lib) exposto na UI: chip **"Grafo desatualizado — N arquivos mudaram"** + botão Atualizar (comando `graph`).
+- [x] Quando stale, aviso no prompt dos agents ("o mapa pode estar atrasado — confirme com `read`").
+
+---
+
+## [x] Fase 6 — Integração & validação [⚡ Flash]
+
+- [x] Fluxo ponta a ponta (real e mock): open → grafo gerado (se `graphify`) → agents recebem GRAPH_REPORT → viewer abre por iframe → chip de staleness correto.
+- [x] `pnpm test`, `tsc --noEmit`, `vite build`, smoke test do protocolo.
+- [x] Atualizar `AGENTS.md`/`ESCOPO.md` se surgir decisão nova.
 
 ---
 
@@ -100,7 +100,7 @@
 ## Riscos
 
 - **Iframe + `graph.html` local:** webview bloqueia `file://`; `srcdoc` pode perder assets relativos (o dashboard do graphify é uma página JS única? confirmar no 1º teste real). Fallback: protocolo custom no Tauri.
-- **`graphify .` lento em repos grandes:** gatilhos no open/fim de fase; em repos muito grandes, intervalo configurável (fallback manual).
+- **`graphify update` lento em repos grandes:** gatilhos no open/fim de fase; em repos muito grandes, intervalo configurável (fallback manual).
 - **Parse local falha em linguagens/estruturas raras:** `ok:false` gracioso com mensagem acionável; fluxo atual 100% preservado.
 
 ---

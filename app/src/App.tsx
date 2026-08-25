@@ -7,6 +7,7 @@ import type { PlannerCard } from "./components/v5/ChatThreadView";
 import { Shell } from "./components/v5/Shell";
 import { EnginePanel } from "./components/EnginePanel";
 import { ChatThreadView } from "./components/v5/ChatThreadView";
+import { GraphViewer } from "./components/v5/GraphViewer";
 import { ModelSettingsModal } from "./components/v5/ModelSettingsModal";
 import { StatusBar, type MotorState } from "./components/v5/StatusBar";
 import { HomeScreen } from "./components/v6/HomeScreen";
@@ -181,6 +182,19 @@ export default function App() {
     />
   );
 
+  const regenerateGraph = () => {
+    if (projectDir) void actions.generateGraph(projectDir, mock);
+  };
+
+  const graphView = (
+    <GraphViewer
+      projectDir={projectDir}
+      graphStatus={state.graphStatus}
+      graphError={state.graphError}
+      onGenerate={regenerateGraph}
+    />
+  );
+
   return (
     <>
       <Shell
@@ -217,6 +231,7 @@ export default function App() {
             completed={state.completed}
             hasPlan={Boolean(docs.plan)}
             planComplete={planComplete}
+            projectDir={projectDir}
             aborting={aborting}
             onStart={() => {
               if (!docs.plan || planComplete) return;
@@ -225,6 +240,9 @@ export default function App() {
             onStop={() => {
               setAborting(true);
               void actions.stop();
+            }}
+            onRegenerateGraph={() => {
+              void actions.generateGraph(projectDir, mock);
             }}
             onBackToChat={() => setView("chat-thread")}
           />
@@ -245,6 +263,9 @@ export default function App() {
             onGenerate={(prompt) => void actions.generatePlan(projectDir, prompt, mock, buildModels())}
           />
         }
+        graphView={graphView}
+        onGenerateGraph={regenerateGraph}
+        onViewGraph={() => setView("graph")}
         statusBar={
           gitError ? (
             <StatusBar

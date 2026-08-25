@@ -35,6 +35,32 @@ export async function readProjectFile(projectDir: string, relativePath: string):
   }
 }
 
+/** Leitura somente-leitura do `graph.html` do projeto-alvo (viewer do grafo — E3). */
+export async function readGraphFile(projectDir: string, relativePath: string): Promise<string | null> {
+  if (!isTauri()) return null;
+  try {
+    const text = await invoke<string>("read_graph_file", { projectDir, relPath: relativePath });
+    return text ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export interface GraphStaleness {
+  stale: boolean;
+  changedCount: number;
+}
+
+/** Detector de staleness do grafo (E3, Fase 5) — comando Tauri `graph_staleness`. */
+export async function graphStaleness(projectDir: string): Promise<GraphStaleness> {
+  if (!isTauri()) return { stale: false, changedCount: 0 };
+  try {
+    return await invoke<GraphStaleness>("graph_staleness", { projectDir });
+  } catch {
+    return { stale: false, changedCount: 0 };
+  }
+}
+
 export async function listGitBranches(projectDir: string): Promise<{ current: string; branches: string[] }> {
   if (!isTauri()) return { current: "", branches: [] };
   return invoke("git_branches", { projectDir });

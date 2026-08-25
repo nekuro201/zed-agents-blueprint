@@ -2,6 +2,7 @@ import readline from "node:readline";
 import { EngineCommandSchema, emit, type EngineCommand, type EngineEvent } from "./protocol.js";
 import { createGate, generatePlan, runOrchestrator, queueInjection, triggerPause, triggerResume, triggerStop } from "./orchestrator.js";
 import { runMock } from "./mock.js";
+import { generateGraphFor } from "./graph.js";
 
 export const ENGINE_VERSION = "0.1.0";
 
@@ -77,6 +78,10 @@ async function main(): Promise<void> {
     }
   };
 
+  const runGraph = async (cmd: Extract<EngineCommand, { type: "graph" }>): Promise<void> => {
+    await generateGraphFor(emit, cmd.projectDir);
+  };
+
   const rl = readline.createInterface({ input: process.stdin });
 
   rl.on("line", (line) => {
@@ -97,6 +102,9 @@ async function main(): Promise<void> {
         break;
       case "plan":
         void runPlan(cmd);
+        break;
+      case "graph":
+        void runGraph(cmd);
         break;
       case "pause":
         if (running) {

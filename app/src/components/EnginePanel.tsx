@@ -1,6 +1,6 @@
 import type { EngineUiState } from "../hooks/useEngine";
 import type { ProjectDocs } from "../hooks/useProjectDocs";
-import { ArrowLeft, CheckCircle2, TriangleAlert } from "lucide-react";
+import { ArrowLeft, CheckCircle2, GitGraph, TriangleAlert } from "lucide-react";
 import { LoopTerminal } from "./v5/LoopTerminal";
 import { DocInspectorPane } from "./v5/DocInspectorPane";
 import { LoopTop } from "./v5/LoopTop";
@@ -20,9 +20,11 @@ export function EnginePanel({
   completed = false,
   hasPlan,
   planComplete,
+  projectDir,
   aborting = false,
   onStart,
   onStop,
+  onRegenerateGraph,
   onBackToChat,
 }: {
   state: EngineUiState;
@@ -32,9 +34,12 @@ export function EnginePanel({
   completed?: boolean;
   hasPlan: boolean;
   planComplete: boolean;
+  /** Path do workspace aberto (sessão) — usado no gatilho do grafo antes do engine conectar. */
+  projectDir?: string;
   aborting?: boolean;
   onStart?: () => void;
   onStop?: () => void;
+  onRegenerateGraph?: () => void;
   onBackToChat?: () => void;
 }) {
   return (
@@ -77,6 +82,19 @@ export function EnginePanel({
         onStart={onStart}
         onStop={onStop}
       />
+
+      {(projectDir || state.projectDir) && onRegenerateGraph && (
+        <div className="flex items-center justify-end border-b border-edge bg-[#161616] px-3 py-1.5">
+          <button
+            type="button"
+            onClick={onRegenerateGraph}
+            title="Regenerar grafo de conhecimento (graphify)"
+            className="inline-flex items-center gap-1.5 rounded-md border border-edge bg-panel px-2.5 py-1 text-[11px] font-medium text-zinc-400 transition-colors hover:border-zinc-500 hover:text-zinc-200"
+          >
+            <GitGraph size={13} aria-hidden /> Regenerar grafo
+          </button>
+        </div>
+      )}
 
       {state.error && (
         <div className="border-b border-red-900 bg-red-950/30 px-3 py-2 text-xs font-medium text-red-300">

@@ -58,28 +58,28 @@ funcionais e o motor ligado. (Escopo detalhado em `ESCOPO.md`.)
 
 ---
 
-## [-] E3 — Grafo de Conhecimento (Graphify) [em andamento]
+## [x] E3 — Grafo de Conhecimento (Graphify)
 Mapear o projeto-alvo em grafo de arquitetura (open-source, on-device, sem telemetria) e
 injetar nos agents — reduzir o grep/tokens do Coder (~70% do consumo) e dar contexto
 arquitetural real ao Techlead/Planejador. (Detalhe no ESCOPO.md.)
 
-### [ ] E3.1 Geração do grafo
-- [ ] Gerar `graphify .` no **open do workspace** e no **fim de cada fase** (degradação graciosa se o `graphifyy` não estiver instalado).
-- [ ] `GRAPH_REPORT.md` + `graph.json` na raiz do projeto-alvo; botão "Regenerar grafo" na UI.
+### [x] E3.1 Geração do grafo
+- [x] Gerar `graphify update <projectDir>` no **open do workspace** e no **fim de cada fase** (degradação graciosa se o binário `graphify` não estiver instalado).
+- [x] `graphify-out/GRAPH_REPORT.md` + `graphify-out/graph.json`; botão "Regenerar grafo" na UI.
 
-### [ ] E3.2 Injeção nos agents
-- [ ] `buildSkillPrompt` injeta o `GRAPH_REPORT.md` junto com `AGENTS.md` (resumo: god nodes, comunidades, conexões — nunca o `graph.json` inteiro).
-- [ ] Regra nas skills do Coder/Testador: usar `graphify query` quando o grafo existir e **confirmar com `read`** antes de editar.
+### [x] E3.2 Injeção nos agents
+- [x] `buildSkillPrompt` injeta o `GRAPH_REPORT.md` junto com `AGENTS.md` (resumo: god nodes, comunidades, conexões — nunca o `graph.json` inteiro).
+- [x] Regra nas skills do Coder/Testador: usar `graphify query` quando o grafo existir e **confirmar com `read`** antes de editar.
 
-### [ ] E3.3 Detector de staleness
-- [ ] Comparar mtime do `graph.json` vs. fonte mais nova → chip "Grafo desatualizado" na UI + aviso no prompt.
-- [ ] Sem Graphify instalado → o app roda exatamente como hoje.
+### [x] E3.3 Detector de staleness
+- [x] Comparar mtime do `graph.json` vs. fonte mais nova → chip "Grafo desatualizado" na UI + aviso no prompt.
+- [x] Sem Graphify instalado → o app roda exatamente como hoje.
 
-### [ ] E3.4 Viewer do grafo (graph2)
-- [ ] Entrada **"Grafo"** no rail + atalhos (⌘G gerar · ⌘V ver).
-- [ ] Toolbar (Ver grafo / Atualizar / Simular alterações / Nova aba / Gerar) + badge de estado
+### [x] E3.4 Viewer do grafo (graph2)
+- [x] Entrada **"Grafo"** no rail + atalhos (⌘G gerar · ⌘V ver).
+- [x] Toolbar (Ver grafo / Atualizar / Simular alterações / Nova aba / Gerar) + badge de estado
       (`sem grafo` / `gerando` / `atualizado` / `desatualizado`) e banner de staleness.
-- [ ] Visual embutido em iframe (conteúdo via `read_graph_file` — ver `PLAN-grafo.md` E3 Fase 4).
+- [x] Visual embutido em iframe (conteúdo via `read_graph_file` — ver `PLAN-grafo.md` E3 Fase 4).
 
 ---
 

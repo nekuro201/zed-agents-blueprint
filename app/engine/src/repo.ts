@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import type { Dirent } from "node:fs";
 
 /**
  * Operações de arquivo escopadas ao projeto alvo.
@@ -117,4 +118,64 @@ export function markPhaseDone(plan: string, fase: string): string {
   }
 
   return applied ? lines.join("\n") : plan;
+}
+
+export interface GraphStaleness {
+  /** True quando existe ao menos um arquivo de código mais novo que o graph.json. */
+  stale: boolean;
+  /** Quantos arquivos de código mudaram após a geração do grafo. */
+  changedCount: number;
+}
+
+/**
+ * Diretórios que NÃO representam código-fonte e por isso não contam para a
+ * staleness do grafo (artefatos de build/controle de versão/dependências).
+ */
+const GRAPH_SKIP_DIRS = new Set(["graphify-out", ".git", "node_modules", "dist", "target", ".next", ".nuxt"]);
+
+/**
+ * Detector de staleness do grafo (E3, Fase 5).
+ *
+ * O `graphify-out/graph.json` fica DESATUALIZADO quando existe qualquer arquivo
+ * do projeto com mtime posterior ao dele (alguém editou código depois da última
+ * geração). Sem `graph.json`, retorna `{ stale:false, changedCount:0 }` — ausência
+ * de grafo não é o mesmo que grafo desatualizado (o viewer já trata o estado vazio).
+ */
+export async function computeGraphStaleness(projectDir: string): Promise<GraphStaleness> {
+  const graphJson = path.join(projectDir, "graphify-out", "graph.json");
+  let graphMtimeMs: number;
+  try {
+    graphMtimeMs = (await fs.stat(graphJson)).mtimeMs;
+  } catch {
+    return { stale: false, changedCount: 0 };
+  }
+
+  let changedCount = 0;
+
+  const walk = async (dir: string): Promise<void> => {
+    let entries: Dirent[];
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.isSymbolicLink()) continue;
+      if (entry.isDirectory()) {
+        if (GRAPH_SKIP_DIRS.has(entry.name)) continue;
+        await walk(path.join(dir, entry.name));
+        continue;
+      }
+      if (!entry.isFile()) continue;
+      try {
+        const st = await fs.stat(path.join(dir, entry.name));
+        if (st.mtimeMs > graphMtimeMs) changedCount++;
+      } catch {
+        /* arquivo sumiu durante a varredura — ignora */
+      }
+    }
+  };
+
+  await walk(projectDir);
+  return { stale: changedCount > 0, changedCount };
 }

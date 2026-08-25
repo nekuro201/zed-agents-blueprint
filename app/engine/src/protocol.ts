@@ -28,6 +28,7 @@ export type AgentModels = z.infer<typeof AgentModelsSchema>;
 export const EngineCommandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("start"), projectDir: z.string().min(1), models: AgentModelsSchema.optional() }),
   z.object({ type: z.literal("plan"), projectDir: z.string().min(1), prompt: z.string().min(1), models: AgentModelsSchema.optional() }),
+  z.object({ type: z.literal("graph"), projectDir: z.string().min(1) }),
   z.object({ type: z.literal("pause") }),
   z.object({ type: z.literal("resume") }),
   z.object({ type: z.literal("inject"), text: z.string().min(1) }),
@@ -62,6 +63,9 @@ export type EngineEvent =
   | { type: "phase"; fase: string | null; total: number; done: number; pct: number }
   | { type: "phase-start"; fase: string }
   | { type: "plan-done"; projectDir: string }
+  | { type: "graph-start"; projectDir: string }
+  | { type: "graph-ready"; projectDir: string; reportPath?: string }
+  | { type: "graph-error"; message: string }
   | { type: "agent-start"; role: AgentRole; attempt?: number; maxAttempts?: number; model?: string }
   | { type: "token"; role: AgentRole; delta: string }
   | { type: "thinking"; role: AgentRole; delta: string }

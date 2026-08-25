@@ -1,6 +1,7 @@
 import type { AgentRole, EngineEvent } from "./protocol.js";
 import type { Gate } from "./orchestrator.js";
 import { StopSignal, checkpoint } from "./orchestrator.js";
+import { generateGraphFor } from "./graph.js";
 
 /**
  * Modo simulado (PI_ENGINE_MOCK=1 ou --mock).
@@ -56,6 +57,7 @@ export async function runMock(opts: {
   const { emit } = opts;
   try {
     emit({ type: "status", status: "starting", detail: "Modo simulado (sem credenciais)." });
+    await generateGraphFor(emit, opts.projectDir);
 
     let done = 0;
     const total = PHASES.length;
@@ -107,6 +109,7 @@ export async function runMock(opts: {
       emit({ type: "phase" as const, fase: idx === PHASES.length - 1 ? null : PHASES[idx + 1]!.fase, total, done, pct: Math.round((done / total) * 100) });
       emit({ type: "phase-done", fase: phase.fase });
       emit({ type: "commit", ok: true, message: `feat: conclui ${phase.fase} (via pi-factory)` });
+      await generateGraphFor(emit, opts.projectDir);
 
       await sleep(350);
     }

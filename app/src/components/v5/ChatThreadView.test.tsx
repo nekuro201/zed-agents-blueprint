@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ChatThreadView } from "./ChatThreadView";
 
@@ -74,12 +74,8 @@ describe("ChatThreadView (F2 — bubbles e planning)", () => {
     expect(screen.getByText(/gerando/i)).toBeInTheDocument();
   });
 
-  it("após plan-done, congela o card do Planejador na conversa (thinking minimizado + resumo + stats + preview PLAN.md)", async () => {
-    const user = userEvent.setup();
-    const { rerender } = render(<ChatThreadView projectDir="/tmp/proj" {...base} planning={false} docs={{}} />);
-    await user.type(screen.getByPlaceholderText(/descreva o escopo/i), "Auth UI");
-    await user.click(screen.getByRole("button", { name: /enviar/i }));
-    rerender(
+  it("durante planning com card vivo, planner-live existe e preview fica oculto", () => {
+    render(
       <ChatThreadView
         projectDir="/tmp/proj"
         {...base}
@@ -91,8 +87,23 @@ describe("ChatThreadView (F2 — bubbles e planning)", () => {
       />,
     );
     expect(screen.getByTestId("planner-live")).toBeInTheDocument();
-    // Preview do PLAN.md NÃO aparece enquanto está gerando
-    expect(screen.queryByText("Fase 1 — Setup")).not.toBeInTheDocument();
+    // Preview do PLAN.md NÃO aparece dentro do card ao vivo (live=true bloqueia o preview)
+    expect(screen.queryByText("PLAN.md gerado")).not.toBeInTheDocument();
+  });
+
+  it("após plan-done, congela o card do Planejador na conversa (thinking minimizado + resumo + stats + preview PLAN.md)", () => {
+    const { rerender, container } = render(
+      <ChatThreadView
+        projectDir="/tmp/proj"
+        {...base}
+        planning
+        docs={{
+          plan: "# PLAN\n\n## [ ] Fase 1 — Setup\n### [ ] 1.1 RED\n",
+        }}
+        plannerCard={{ thinking: "Vou fatiar…", text: "", model: "llmgateway/deepseek-v4-flash", ended: false }}
+      />,
+    );
+    // Transição: plannerCard.ended muda de false → true (plan-done)
     rerender(
       <ChatThreadView
         projectDir="/tmp/proj"
@@ -110,11 +121,19 @@ describe("ChatThreadView (F2 — bubbles e planning)", () => {
         }}
       />,
     );
-    expect(screen.getByTestId("planner-live")).not.toBeInTheDocument();
-    // Preview do PLAN.md aparece agora (card congelado)
-    expect(screen.getByText(/PLAN\.md gerado/i)).toBeInTheDocument();
-    expect(screen.getByText("Fase 1 — Setup")).toBeInTheDocument();
-    expect(screen.getByText(/120 tokens/i)).toBeInTheDocument();
+
+    // O card ao vivo some (não existe mais)
+    expect(screen.queryByTestId("planner-live")).not.toBeInTheDocument();
+
+    // O card congelado aparece na conversa (data-role="planner")
+    const frozenCard = container.querySelector('[data-role="planner"]');
+    expect(frozenCard).not.toBeNull();
+    const card = within(frozenCard as HTMLElement);
+
+    // Resumo (fallback, pois card.text é vazio) + preview do PLAN.md + stats
+    expect(card.getByText(/Inicie o loop no orquestrador/i)).toBeInTheDocument();
+    expect(card.getByText("Fase 1 — Setup")).toBeInTheDocument();
+    expect(card.getByText(/120 tokens/i)).toBeInTheDocument();
   });
 
   it("segundo envio mantém as duas mensagens do usuário", async () => {

@@ -13,5 +13,10 @@ export interface PaletteCommand {
 
 /** Constrói um comando de troca de view a partir da config única (DRY). */
 export function viewCommand(view: ViewMeta, run: () => void): PaletteCommand {
-  return { id: `view:${view.id}`, label: view.title, keys: `⌘${view.shortcut}`, run };
+  return {
+    id: `view:${view.id}`,
+    label: view.title,
+    keys: view.shortcut != null ? `⌘${view.shortcut}` : undefined,
+    run,
+  };
 }

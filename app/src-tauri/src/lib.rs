@@ -150,14 +150,13 @@ fn kill_proc(proc: &mut EngineProc) {
 
 /// Leitura SOMENTE-leitura de arquivos do projeto-alvo (inspector 2.3).
 /// Nunca expõe caminhos fora do `project_dir` (guarda contra `../`).
-#[tauri::command]
-fn read_project_file(project_dir: String, rel_path: String) -> Result<String, String> {
-    let base = std::path::PathBuf::from(&project_dir);
+fn read_scoped_file(project_dir: &str, rel_path: &str) -> Result<String, String> {
+    let base = std::path::PathBuf::from(project_dir);
     let base_canonical = base
         .canonicalize()
         .map_err(|e| format!("Diretório de projeto inválido: {e}"))?;
 
-    let target = base.join(&rel_path);
+    let target = base.join(rel_path);
     let target_canonical = target
         .canonicalize()
         .map_err(|_| format!("Arquivo não encontrado: {rel_path}"))?;
@@ -167,6 +166,83 @@ fn read_project_file(project_dir: String, rel_path: String) -> Result<String, St
     }
 
     std::fs::read_to_string(&target_canonical).map_err(|e| format!("Falha ao ler {rel_path}: {e}"))
+}
+
+#[tauri::command]
+fn read_project_file(project_dir: String, rel_path: String) -> Result<String, String> {
+    read_scoped_file(&project_dir, &rel_path)
+}
+
+/// Leitura SOMENTE-leitura do `graph.html` do projeto-alvo (viewer do grafo — E3).
+/// Mesma guarda de path do `read_project_file` (nunca escapa do projectDir).
+#[tauri::command]
+fn read_graph_file(project_dir: String, rel_path: String) -> Result<String, String> {
+    read_scoped_file(&project_dir, &rel_path)
+}
+
+/// Diretórios que NÃO representam código-fonte — não contam para a staleness.
+const GRAPH_SKIP_DIRS: &[&str] = &[
+    "graphify-out",
+    ".git",
+    "node_modules",
+    "dist",
+    "target",
+    ".next",
+    ".nuxt",
+];
+
+/// Varre recursivamente `dir` contando arquivos regulares com mtime posterior a
+/// `newer_than`. Pula diretórios de artefato e symlinks (sem recursão infinita).
+fn count_newer_files(
+    dir: &std::path::Path,
+    newer_than: std::time::SystemTime,
+) -> Result<u64, String> {
+    let mut count: u64 = 0;
+    let entries = std::fs::read_dir(dir).map_err(|e| format!("read_dir {}: {e}", dir.display()))?;
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("entry: {e}"))?;
+        let name = entry.file_name();
+        if GRAPH_SKIP_DIRS.contains(&name.to_string_lossy().as_ref()) {
+            continue;
+        }
+        let file_type = match entry.file_type() {
+            Ok(ft) => ft,
+            Err(_) => continue,
+        };
+        if file_type.is_symlink() {
+            continue;
+        }
+        if file_type.is_dir() {
+            count += count_newer_files(&entry.path(), newer_than)?;
+        } else if file_type.is_file() {
+            if let Ok(md) = entry.metadata() {
+                if let Ok(modified) = md.modified() {
+                    if modified > newer_than {
+                        count += 1;
+                    }
+                }
+            }
+        }
+    }
+    Ok(count)
+}
+
+/// Detector de staleness do grafo (E3, Fase 5): `graph.json` mais velho que a
+/// fonte mais nova → `stale:true` + quantos arquivos mudaram. Sem `graph.json`,
+/// retorna `{ stale:false, changedCount:0 }` (ausência ≠ desatualizado).
+#[tauri::command]
+fn graph_staleness(project_dir: String) -> Result<serde_json::Value, String> {
+    let base = canonical_project(&project_dir)?;
+    let graph_json = base.join("graphify-out").join("graph.json");
+    let graph_mtime = match std::fs::metadata(&graph_json) {
+        Ok(md) => md
+            .modified()
+            .map_err(|e| format!("mtime do graph.json: {e}"))?,
+        Err(_) => return Ok(serde_json::json!({ "stale": false, "changedCount": 0 })),
+    };
+
+    let changed_count = count_newer_files(&base, graph_mtime)?;
+    Ok(serde_json::json!({ "stale": changed_count > 0, "changedCount": changed_count }))
 }
 
 fn canonical_project(project_dir: &str) -> Result<std::path::PathBuf, String> {
@@ -190,7 +266,9 @@ fn run_git(cwd: &std::path::Path, args: &[&str]) -> Result<String, String> {
 #[tauri::command]
 fn git_branches(project_dir: String) -> Result<serde_json::Value, String> {
     let cwd = canonical_project(&project_dir)?;
-    let current = run_git(&cwd, &["branch", "--show-current"])?.trim().to_string();
+    let current = run_git(&cwd, &["branch", "--show-current"])?
+        .trim()
+        .to_string();
     let listed = run_git(&cwd, &["branch", "--format=%(refname:short)"])?;
     let branches: Vec<String> = listed
         .lines()
@@ -234,6 +312,8 @@ pub fn run() {
             engine_send,
             engine_stop,
             read_project_file,
+            read_graph_file,
+            graph_staleness,
             git_branches,
             git_checkout_new
         ])

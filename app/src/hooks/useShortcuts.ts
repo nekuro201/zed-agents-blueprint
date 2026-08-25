@@ -6,6 +6,10 @@ export interface ShortcutHandlers {
   /** Recebe o número do atalho ⌘N (1..9); o chamador mapeia via viewByShortcut. */
   onSelectView: (shortcut: number) => void;
   onToggleExplorer?: () => void;
+  /** E3 — ⌘G gera o grafo de conhecimento. */
+  onGenerateGraph?: () => void;
+  /** E3 — ⌘V abre/recarrega a view do grafo. */
+  onViewGraph?: () => void;
 }
 
 /**
@@ -38,6 +42,22 @@ export function useShortcuts(handlers: ShortcutHandlers): void {
       if (e.key.toLowerCase() === "b") {
         e.preventDefault();
         ref.current.onToggleExplorer?.();
+        return;
+      }
+      if (e.key.toLowerCase() === "g") {
+        e.preventDefault();
+        ref.current.onGenerateGraph?.();
+        return;
+      }
+      if (e.key.toLowerCase() === "v") {
+        // ⌘V dentro de campos editáveis é "colar" — não roubamos esse atalho.
+        const target = e.target as HTMLElement | null;
+        const editable =
+          target != null &&
+          (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+        if (editable) return;
+        e.preventDefault();
+        ref.current.onViewGraph?.();
         return;
       }
       if (e.key >= "1" && e.key <= "9") {

@@ -79,3 +79,29 @@ describe("reducer — completed (trava de segurança)", () => {
     expect(s.completed).toBe(false);
   });
 });
+
+describe("reducer E3 — status do grafo", () => {
+  it("começa sem grafo (empty)", () => {
+    expect(initialState.graphStatus).toBe("empty");
+    expect(initialState.graphError).toBeNull();
+  });
+
+  it("graph-start liga o estado de geração (loading)", () => {
+    const s = apply(initialState, { type: "graph-start", projectDir: "/tmp/proj" });
+    expect(s.graphStatus).toBe("loading");
+  });
+
+  it("graph-ready marca como pronto", () => {
+    let s = apply(initialState, { type: "graph-start", projectDir: "/tmp/proj" });
+    s = apply(s, { type: "graph-ready", projectDir: "/tmp/proj", reportPath: "/tmp/proj/graphify-out/GRAPH_REPORT.md" });
+    expect(s.graphStatus).toBe("ready");
+    expect(s.graphError).toBeNull();
+  });
+
+  it("graph-error volta para empty e registra o motivo", () => {
+    let s = apply(initialState, { type: "graph-start", projectDir: "/tmp/proj" });
+    s = apply(s, { type: "graph-error", message: "Falha ao gerar o grafo: not-installed." });
+    expect(s.graphStatus).toBe("empty");
+    expect(s.graphError).toBe("Falha ao gerar o grafo: not-installed.");
+  });
+});

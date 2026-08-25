@@ -32,6 +32,9 @@ export const EngineEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("phase"), fase: z.string().nullable(), total: z.number(), done: z.number(), pct: z.number() }),
   z.object({ type: z.literal("phase-start"), fase: z.string() }),
   z.object({ type: z.literal("plan-done"), projectDir: z.string() }),
+  z.object({ type: z.literal("graph-start"), projectDir: z.string() }),
+  z.object({ type: z.literal("graph-ready"), projectDir: z.string(), reportPath: z.string().optional() }),
+  z.object({ type: z.literal("graph-error"), message: z.string() }),
   z.object({ type: z.literal("agent-start"), role: AgentRoleSchema, attempt: z.number().optional(), maxAttempts: z.number().optional(), model: z.string().optional() }),
   z.object({ type: z.literal("token"), role: AgentRoleSchema, delta: z.string() }),
   z.object({ type: z.literal("thinking"), role: AgentRoleSchema, delta: z.string() }),
@@ -69,6 +72,7 @@ export type AgentModels = {
 export type EngineCommand =
   | { type: "start"; projectDir: string; models?: AgentModels }
   | { type: "plan"; projectDir: string; prompt: string; models?: AgentModels }
+  | { type: "graph"; projectDir: string }
   | { type: "pause" }
   | { type: "resume" }
   | { type: "inject"; text: string }

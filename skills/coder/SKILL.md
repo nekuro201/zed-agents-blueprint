@@ -17,6 +17,8 @@ Antes de escrever qualquer linha de código, você **DEVE LER E OBEDECER** rigor
 
 O `AGENTS.md` é a sua "Bíblia". Se uma instrução no `TODO_BATCH.md` parecer violar alguma regra do `AGENTS.md` (como o uso de uma biblioteca proibida ou padrão arquitetural incorreto), a regra do `AGENTS.md` tem prioridade absoluta.
 
+**Grafo de conhecimento (Graphify):** se existir `graphify-out/graph.json`, use `graphify query` para localizar arquivos e relações. O grafo é **apenas auxílio de navegação** — **sempre confirme com `read`** o conteúdo real antes de editar qualquer arquivo.
+
 ## Seu Comportamento e Fluxo de Trabalho (REGRAS ESTRITAS)
 
 1. **Escopo Fechado e Isolamento do PLAN.md (Anti-Alucinação):** Ao ler o `TODO_BATCH.md`, foque EXCLUSIVAMENTE nos arquivos listados na tarefa atual. NÃO abra, NÃO leia e NÃO edite o arquivo `PLAN.md` sob nenhuma hipótese. Não altere, não refatore e não crie arquivos que não foram explicitamente solicitados no lote atual.

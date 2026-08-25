@@ -44,6 +44,9 @@ export interface EngineUiState {
   projectDir: string | null;
   phase: { fase: string | null; total: number; done: number; pct: number } | null;
   error: string | null;
+  /** E3 — estado do grafo de conhecimento (derivado dos eventos graph-*). */
+  graphStatus: "empty" | "loading" | "ready";
+  graphError: string | null;
   timeline: TimelineItem[];
   planning: boolean;
 }
@@ -62,6 +65,8 @@ const initialState: EngineUiState = {
   projectDir: null,
   phase: null,
   error: null,
+  graphStatus: "empty",
+  graphError: null,
   timeline: [],
   planning: false,
 };
@@ -140,6 +145,15 @@ function reduceUncapped(state: EngineUiState, action: Action): EngineUiState {
 
     case "plan-done":
       return { ...state, planning: false, completed: false };
+
+    case "graph-start":
+      return { ...withItem({ id: nextId++, kind: "log", level: "info", message: `Grafo: gerando em ${ev.projectDir}…` }), graphStatus: "loading", graphError: null };
+
+    case "graph-ready":
+      return { ...withItem({ id: nextId++, kind: "log", level: "info", message: `Grafo: atualizado (report em ${ev.projectDir})` }), graphStatus: "ready", graphError: null };
+
+    case "graph-error":
+      return { ...withItem({ id: nextId++, kind: "log", level: "warn", message: `Grafo: ${ev.message}` }), graphStatus: "empty", graphError: ev.message };
 
     case "phase":
       return { ...state, phase: { fase: ev.fase, total: ev.total, done: ev.done, pct: ev.pct } };
@@ -288,6 +302,8 @@ export interface EngineActions {
   stop: () => Promise<void>;
   /** Pede ao engine para gerar o PLAN.md a partir do escopo escrito (composer do Planejador). */
   generatePlan: (projectDir: string, prompt: string, mock?: boolean, models?: AgentModels) => Promise<void>;
+  /** Dispara a geração do grafo de conhecimento (graphify) no projectDir. */
+  generateGraph: (projectDir: string, mock: boolean) => Promise<void>;
 }
 
 export function useEngine(): { state: EngineUiState; actions: EngineActions; notTauri: boolean } {
@@ -396,6 +412,20 @@ export function useEngine(): { state: EngineUiState; actions: EngineActions; not
           await engineStop().catch(() => undefined);
           await engineStart(projectDir, mock);
           await send({ type: "plan", projectDir, prompt, models });
+        } catch (err) {
+          dispatchRef.current({ type: "event", ev: { type: "error", message: (err as Error).message } });
+        }
+      },
+      [send],
+    ),
+    generateGraph: useCallback(
+      async (projectDir, mock) => {
+        if (!isTauri()) return;
+        try {
+          // Garante que o engine está vivo antes de enviar o comando `graph`.
+          await engineStop().catch(() => undefined);
+          await engineStart(projectDir, mock);
+          await send({ type: "graph", projectDir });
         } catch (err) {
           dispatchRef.current({ type: "event", ev: { type: "error", message: (err as Error).message } });
         }

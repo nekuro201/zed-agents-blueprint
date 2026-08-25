@@ -19,6 +19,8 @@ function state(partial: Partial<EngineUiState>): EngineUiState {
     projectDir: null,
     phase: null,
     error: null,
+    graphStatus: "empty",
+    graphError: null,
     timeline: [],
     planning: false,
     ...partial,

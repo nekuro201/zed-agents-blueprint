@@ -4,6 +4,7 @@ import { agentRun, structured } from "./pi.js";
 import type { AgentModels, AgentRole, EngineEvent } from "./protocol.js";
 import { buildSkillPrompt } from "./skills.js";
 import { Repo, markPhaseDone, nextPendingPhase, planProgress } from "./repo.js";
+import { generateGraphFor } from "./graph.js";
 
 /**
  * Orquestrador — a máquina de estados do fluxo "fábrica de software autônoma",
@@ -138,6 +139,7 @@ export async function runOrchestrator(opts: OrchestratorOptions): Promise<void> 
   try {
     let crise = false;
     emit({ type: "status", status: "starting", detail: "Lendo PLAN.md…" });
+    await generateGraphFor(emit, projectDir);
 
     const agentsMd = await repo.read("AGENTS.md");
     const runStructured = <T>(role: AgentRole, prompt: string, schema: z.ZodType<T>) =>
@@ -274,6 +276,7 @@ export async function runOrchestrator(opts: OrchestratorOptions): Promise<void> 
         } catch {
           emit({ type: "commit", ok: false, message: "Commit ignorado (sem alterações ou git não iniciado)." });
         }
+        await generateGraphFor(emit, projectDir);
       } else {
         emit({ type: "log", level: "error", message: `🚨 Protocolo de crise: o Coder falhou ${MAX_TENTATIVAS_ERRO}x na ${faseAtiva}.` });
         await checkpoint(gate, emit, "crise");

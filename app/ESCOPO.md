@@ -82,9 +82,9 @@ corta essa navegação e dá contexto arquitetural real ao Techlead/Planejador.
 
 ### Escopo In (desta mecânica)
 
-- **Geração do grafo:** `graphify .` no **open do workspace** e no **fim de cada fase**
-  do loop → `GRAPH_REPORT.md` + `graph.json` na raiz do projeto-alvo. Botão
-  "Regenerar grafo" na UI.
+- **Geração do grafo:** `graphify update <projectDir>` no **open do workspace** e no
+  **fim de cada fase** do loop → `graphify-out/GRAPH_REPORT.md` + `graphify-out/graph.json`.
+  Botão "Regenerar grafo" na UI. (Subcomando determinístico, sem chave LLM — nunca `graphify .`.)
 - **Viewer do grafo (graph2):** entrada **"Grafo"** no rail + toolbar (Ver grafo / Atualizar /
   Simular alterações / Nova aba / Gerar) e badge de estado (`sem grafo` / `gerando` /
   `atualizado` / `desatualizado`) com banner de staleness. Visual embutido em iframe.

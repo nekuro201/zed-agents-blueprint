@@ -8,6 +8,8 @@ function mount() {
     onClosePalette: vi.fn(),
     onSelectView: vi.fn(),
     onToggleExplorer: vi.fn(),
+    onGenerateGraph: vi.fn(),
+    onViewGraph: vi.fn(),
   };
   renderHook(() => useShortcuts(handlers));
   return handlers;
@@ -36,6 +38,27 @@ describe("useShortcuts", () => {
     const h = mount();
     fireEvent.keyDown(window, { key: "b", ctrlKey: true });
     expect(h.onToggleExplorer).toHaveBeenCalledTimes(1);
+  });
+
+  it("⌘G dispara a geração do grafo", () => {
+    const h = mount();
+    fireEvent.keyDown(window, { key: "g", metaKey: true });
+    expect(h.onGenerateGraph).toHaveBeenCalledTimes(1);
+  });
+
+  it("⌘V dispara ver grafo quando o foco não é um campo editável", () => {
+    const h = mount();
+    fireEvent.keyDown(window, { key: "v", metaKey: true });
+    expect(h.onViewGraph).toHaveBeenCalledTimes(1);
+  });
+
+  it("⌘V NÃO dispara dentro de input (preserva colar)", () => {
+    const h = mount();
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    fireEvent.keyDown(input, { key: "v", metaKey: true });
+    expect(h.onViewGraph).not.toHaveBeenCalled();
+    input.remove();
   });
 
   it("ignora teclas sem modificador", () => {
