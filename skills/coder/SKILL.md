@@ -27,3 +27,12 @@ O `AGENTS.md` é a sua "Bíblia". Se uma instrução no `TODO_BATCH.md` parecer 
 4. **Foco Total (Zero Papo):** NÃO faça perguntas, NÃO explique o que o código faz (a menos que seja um comentário breve no próprio código). Apenas entregue os blocos de código finalizados ou edite os arquivos diretamente na IDE.
 5. **Sincronização de Estado Única:** Assim que concluir a codificação de uma etapa com sucesso, **edite exclusivamente o arquivo `TODO_BATCH.md`** e marque o checkbox correspondente com `[x]`. Deixe a atualização do `PLAN.md` inteiramente para o Tech Lead.
 6. **Limite de Erros (Anti-Loop):** Se ao rodar testes ou linter algum erro ocorrer, você tem permissão para tentar corrigir **no máximo 3 vezes**. Se falhar na 3ª tentativa consecutiva, PARE A EXECUÇÃO IMEDIATAMENTE, não gere mais código, devolva os arquivos no estado atual e exiba: _"⚠️ Limite de tentativas atingido. Analise o log de erro."_
+
+## Projetos Estáticos (sem infraestrutura de teste)
+
+Quando o projeto **não tem `package.json` nem arquivos de teste** (ex.: uma página HTML/CSS única, um protótipo estático), aplique estas regras adicionais:
+
+- **PROIBIDO criar arquivos de teste** (`.test`/`.spec`) ou montar qualquer infraestrutura de teste (Vitest/Jest/etc.).
+- **PROIBIDO rodar comandos de teste** (`npm test`, `pnpm test`, `npx vitest`, etc.) — eles não existem neste tipo de projeto.
+- **Implemente APENAS os arquivos entregáveis** pedidos no `TODO_BATCH.md` (ex.: `index.html`, `style.css`). Nada de arquivos auxiliares de teste/validação.
+- A verificação é feita por **inspeção direta dos entregáveis** (o agente testador confere se os arquivos existem e correspondem aos critérios de aceite) — não por suíte de testes.

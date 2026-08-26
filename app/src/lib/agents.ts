@@ -1,25 +1,33 @@
-import type { LucideIcon } from "lucide-react";
-import { Brain, ClipboardList, Code2, Scale } from "lucide-react";
+import type { AgentRole } from "./protocol";
 
 /**
- * Agentes do fluxo — fonte única de chaves, rótulos e ícones (DRY).
- * Usada pelo roster (Sidebar), pela persistência de modelos (modelConfig) e,
- * futuramente, pelo pipeline/terminal ligados ao engine.
+ * Agentes configuráveis no modal de modelos — fonte única de ORDEM e DEFAULTS.
+ * Os rótulos ficam em `roles.ts` (ROLE_LABEL) e os ícones no `pipeline.ts`
+ * (ROLE_ICON) — nada de duplicar essa taxonomia aqui.
  */
-export const AGENT_KEYS = ["plan", "techlead", "coder", "qa"] as const;
+export const AGENT_KEYS: readonly AgentRole[] = [
+  "planejador",
+  "leitor",
+  "techlead",
+  "coder",
+  "testador",
+  "qa",
+  "crise",
+];
 
-export type AgentKey = (typeof AGENT_KEYS)[number];
+export type AgentKey = AgentRole;
 
 export interface AgentMeta {
-  label: string;
-  icon: LucideIcon;
   defaultModel: string;
   defaultThinking: string;
 }
 
-export const AGENT_META: Record<AgentKey, AgentMeta> = {
-  plan: { label: "Planejador", icon: Brain, defaultModel: "llmgateway/deepseek-v4-flash", defaultThinking: "Standard" },
-  techlead: { label: "Techlead", icon: ClipboardList, defaultModel: "llmgateway/deepseek-v4-flash", defaultThinking: "Standard" },
-  coder: { label: "Coder", icon: Code2, defaultModel: "llmgateway/deepseek-v4-flash", defaultThinking: "Standard" },
-  qa: { label: "Juiz TDD", icon: Scale, defaultModel: "llmgateway/deepseek-v4-flash", defaultThinking: "Maximum" },
+export const AGENT_META: Record<AgentRole, AgentMeta> = {
+  planejador: { defaultModel: "llmgateway/deepseek-v4-flash", defaultThinking: "Standard" },
+  leitor: { defaultModel: "llmgateway/deepseek-v4-flash", defaultThinking: "Standard" },
+  techlead: { defaultModel: "llmgateway/deepseek-v4-flash", defaultThinking: "Standard" },
+  coder: { defaultModel: "llmgateway/deepseek-v4-flash", defaultThinking: "Standard" },
+  testador: { defaultModel: "llmgateway/deepseek-v4-flash", defaultThinking: "Standard" },
+  qa: { defaultModel: "llmgateway/deepseek-v4-flash", defaultThinking: "Maximum" },
+  crise: { defaultModel: "llmgateway/deepseek-v4-flash", defaultThinking: "Medium" },
 };

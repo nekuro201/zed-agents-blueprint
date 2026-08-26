@@ -1,8 +1,9 @@
 import { useEffect } from "react";
-import { Brain, CornerDownRight, FlaskConical, Info, Package, Scale, TriangleAlert, XCircle } from "lucide-react";
+import { Brain, Clock, CornerDownRight, Eye, FlaskConical, Info, Package, Scale, TriangleAlert, XCircle } from "lucide-react";
 import { cn } from "../../lib/cn";
 import { useStickToBottom } from "../../hooks/useStickToBottom";
-import type { AgentRole } from "../../lib/protocol";
+import { formatDuration } from "../../lib/format";
+import { ROLE_COLOR, ROLE_LABEL } from "../../lib/roles";
 import type { TimelineItem } from "../../hooks/useEngine";
 
 /**
@@ -16,25 +17,12 @@ import type { TimelineItem } from "../../hooks/useEngine";
  */
 export const LOOP_TERMINAL_MAX_ITEMS = 400;
 
-const ROLE_LABEL: Record<AgentRole, string> = {
-  planejador: "Planejador",
-  leitor: "Leitor",
-  techlead: "Techlead",
-  coder: "Coder",
-  testador: "Testador",
-  qa: "Juiz TDD",
-  crise: "Crise",
+const COST_REASON_TEXT: Record<string, string> = {
+  "no-pricing": "O modelo não reporta preço na API do llmgateway — custo indisponível.",
+  "not-found": "Modelo não encontrado na lista do llmgateway — sem preço para calcular o custo.",
+  "not-loaded": "Lista de modelos/preços não carregada — custo indisponível.",
 };
 
-const ROLE_COLOR: Record<AgentRole, string> = {
-  planejador: "text-indigo-400",
-  leitor: "text-violet-400",
-  techlead: "text-sky-400",
-  coder: "text-emerald-400",
-  testador: "text-cyan-400",
-  qa: "text-fuchsia-400",
-  crise: "text-red-400",
-};
 
 function AgentBlock({ item }: { item: Extract<TimelineItem, { kind: "agent" }> }) {
   return (
@@ -50,6 +38,14 @@ function AgentBlock({ item }: { item: Extract<TimelineItem, { kind: "agent" }> }
             {ROLE_LABEL[item.role]}
           </span>
           {item.model && <span className="truncate text-[10px] text-zinc-600">{item.model}</span>}
+          {item.fallback && (
+            <span
+              title="Modelo configurado não encontrado; usando o fallback padrão"
+              className="inline-flex items-center gap-1 rounded bg-amber-950/50 px-1.5 py-px text-[9px] font-semibold text-amber-400"
+            >
+              <CornerDownRight size={10} aria-hidden /> fallback
+            </span>
+          )}
           {item.attempt !== undefined && (
             <span className="rounded bg-black/40 px-1 py-px text-[10px] text-zinc-500">
               tentativa {item.attempt}/{item.maxAttempts ?? "?"}
@@ -93,10 +89,23 @@ function AgentBlock({ item }: { item: Extract<TimelineItem, { kind: "agent" }> }
               ))}
             </div>
           )}
-          {item.ended && item.stats && (
-            <div className="mt-1 flex gap-3 border-t border-edge/40 pt-1 text-[10px] text-zinc-600">
-              <span>Σ {item.stats.tokens.total} tokens</span>
-              <span className="text-amber-400/70">US$ {item.stats.cost.toFixed(4)}</span>
+          {item.ended && (item.stats || item.durationMs !== undefined) && (
+            <div className="mt-1 flex flex-wrap gap-3 border-t border-edge/40 pt-1 text-[10px] text-zinc-600">
+              {item.stats && <span>Σ {item.stats.tokens.total} tokens</span>}
+              {item.stats && <span className="text-amber-400/70">US$ {item.stats.cost.toFixed(4)}</span>}
+              {item.costReason && item.costReason !== "pricing" && item.costReason !== "sdk" && (
+                <span
+                  title={COST_REASON_TEXT[item.costReason] ?? "Custo indisponível"}
+                  className="inline-flex items-center gap-1 rounded bg-amber-950/50 px-1.5 py-px text-[9px] font-semibold text-amber-400"
+                >
+                  <TriangleAlert size={10} aria-hidden /> custo indisponível
+                </span>
+              )}
+              {item.durationMs !== undefined && (
+                <span className="inline-flex items-center gap-1">
+                  <Clock size={10} aria-hidden /> {formatDuration(item.durationMs)}
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -124,7 +133,78 @@ function TestBlock({ item }: { item: Extract<TimelineItem, { kind: "test" }> }) 
   );
 }
 
-function TerminalLine({ item }: { item: TimelineItem }) {
+/** E4 — Card de crise no terminal com ações de auditoria. */
+function CrisisCard({
+  item,
+  crisisActive,
+  onCrisisAccept,
+  onCrisisRevert,
+  onFocusInspector,
+}: {
+  item: Extract<TimelineItem, { kind: "crisis" }>;
+  crisisActive: boolean;
+  onCrisisAccept?: () => void;
+  onCrisisRevert?: () => void;
+  onFocusInspector?: () => void;
+}) {
+  return (
+    <div className="mt-2 rounded-lg border border-amber-700/60 bg-amber-950/20">
+      <div className="flex items-start gap-2 border-b border-amber-700/30 px-3 py-2">
+        <TriangleAlert size={14} className="mt-0.5 shrink-0 text-amber-400" aria-hidden />
+        <div className="min-w-0 flex-1">
+          <div className="text-[12px] font-bold text-amber-300">Protocolo de Crise</div>
+          <div className="mt-0.5 text-[11px] leading-relaxed text-amber-200/70">{item.message}</div>
+        </div>
+      </div>
+      {item.diff && (
+        <pre className="max-h-32 overflow-auto whitespace-pre-wrap border-b border-amber-700/20 px-3 py-1.5 text-[10px] leading-relaxed text-amber-400/60">
+          {item.diff}
+        </pre>
+      )}
+      {crisisActive && (
+        <div className="flex items-center gap-2 px-3 py-2">
+          {onFocusInspector && (
+            <button
+              type="button"
+              onClick={onFocusInspector}
+              className="inline-flex items-center gap-1.5 rounded-md border border-amber-700/50 bg-amber-950/40 px-2.5 py-1 text-[11px] font-medium text-amber-200 transition-colors hover:border-amber-500 hover:bg-amber-900/40"
+            >
+              <Eye size={11} aria-hidden /> Inspecionar TODO_BATCH
+            </button>
+          )}
+          <span className="flex-1" />
+          {onCrisisRevert && (
+            <button
+              type="button"
+              onClick={onCrisisRevert}
+              className="inline-flex items-center gap-1.5 rounded-md border border-red-700/50 bg-red-950/30 px-2.5 py-1 text-[11px] font-medium text-red-300 transition-colors hover:border-red-500 hover:bg-red-900/40"
+            >
+              <XCircle size={11} aria-hidden /> Reverter e parar
+            </button>
+          )}
+          {onCrisisAccept && (
+            <button
+              type="button"
+              onClick={onCrisisAccept}
+              className="inline-flex items-center gap-1.5 rounded-md border border-emerald-700/50 bg-emerald-950/30 px-2.5 py-1 text-[11px] font-semibold text-emerald-300 transition-colors hover:border-emerald-500 hover:bg-emerald-900/40"
+            >
+              <Package size={11} aria-hidden /> Aceitar e continuar
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface CrisisActions {
+  crisisActive?: boolean;
+  onCrisisAccept?: () => void;
+  onCrisisRevert?: () => void;
+  onFocusInspector?: () => void;
+}
+
+function TerminalLine({ item, crisisActive = false, onCrisisAccept, onCrisisRevert, onFocusInspector }: { item: TimelineItem } & CrisisActions) {
   switch (item.kind) {
     case "phase":
       return (
@@ -159,10 +239,14 @@ function TerminalLine({ item }: { item: TimelineItem }) {
         </div>
       );
     case "crisis":
+      return <CrisisCard item={item} crisisActive={crisisActive} onCrisisAccept={onCrisisAccept} onCrisisRevert={onCrisisRevert} onFocusInspector={onFocusInspector} />;
+    case "retry":
       return (
-        <div className="mt-1.5 flex items-start gap-1.5 rounded-lg border border-red-700/50 bg-red-950/30 px-2.5 py-1.5 text-[11px] text-red-300">
-          <TriangleAlert size={12} className="mt-0.5 shrink-0" aria-hidden />
-          <span>{item.message}</span>
+        <div className="inline-flex items-start gap-1.5 text-[11px] text-amber-400">
+          <TriangleAlert size={11} className="mt-0.5 shrink-0" aria-hidden />
+          <span>
+            Retry {item.role} (tentativa {item.attempt}/{item.maxAttempts}) — {item.reason} — aguardando {item.delayMs}ms
+          </span>
         </div>
       );
     case "injected":
@@ -187,7 +271,12 @@ function TerminalLine({ item }: { item: TimelineItem }) {
       );
     case "status":
       return (
-        <div className="text-[11px] text-zinc-400">
+        <div className={cn("text-[11px]", item.status === "stopping" ? "italic text-amber-400" : item.status === "error" ? "text-red-400" : "text-zinc-400")}>
+          {item.stage && (
+            <span className="mr-1.5 rounded border border-amber-500/30 bg-amber-400/10 px-1 py-px text-[10px] font-semibold text-amber-300">
+              {item.stage}
+            </span>
+          )}
           {item.message}
           {item.sub && <span className="text-zinc-600"> · {item.sub}</span>}
         </div>
@@ -197,7 +286,16 @@ function TerminalLine({ item }: { item: TimelineItem }) {
   }
 }
 
-export function LoopTerminal({ items }: { items: TimelineItem[] }) {
+interface LoopTerminalProps {
+  items: TimelineItem[];
+  /** Se o loop está em crise aguardando decisão (status === "waiting" && stage === "crisis"). */
+  crisisActive?: boolean;
+  onCrisisAccept?: () => void;
+  onCrisisRevert?: () => void;
+  onFocusInspector?: () => void;
+}
+
+export function LoopTerminal({ items, crisisActive = false, onCrisisAccept, onCrisisRevert, onFocusInspector }: LoopTerminalProps) {
   const windowed = items.slice(-LOOP_TERMINAL_MAX_ITEMS);
   const { ref, stickToBottom } = useStickToBottom<HTMLDivElement>();
 
@@ -222,7 +320,7 @@ export function LoopTerminal({ items }: { items: TimelineItem[] }) {
       className="h-full overflow-y-auto bg-[#0d0e12] px-4 py-3 font-mono text-[12.5px] leading-relaxed text-zinc-300"
     >
       {windowed.map((item) => (
-        <TerminalLine key={item.id} item={item} />
+        <TerminalLine key={item.id} item={item} crisisActive={crisisActive} onCrisisAccept={onCrisisAccept} onCrisisRevert={onCrisisRevert} onFocusInspector={onFocusInspector} />
       ))}
     </div>
   );

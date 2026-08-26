@@ -17,11 +17,16 @@ const entry = z.object({
   thinking: z.string().min(1, "Thinking não pode ser vazio"),
 });
 
+// Espelho explícito das 7 chaves do `AgentModels` (protocolo), nunca um
+// `Object.fromEntries` que apagaria os tipos literais para o Zod.
 export const AGENT_CONFIG_SCHEMA = z.object({
-  plan: entry,
+  planejador: entry,
+  leitor: entry,
   techlead: entry,
   coder: entry,
+  testador: entry,
   qa: entry,
+  crise: entry,
 });
 
 export const STORAGE_KEY = "pi-factory:model-config";

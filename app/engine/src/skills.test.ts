@@ -95,4 +95,26 @@ describe("buildSkillPrompt (injeção do GRAPH_REPORT)", () => {
       await fs.rm(dir, { recursive: true, force: true });
     }
   });
+
+  it("não injeta o grafo em projeto estático (projectKind: static)", async () => {
+    const dir = await makeProjectDir();
+    try {
+      await writeGraphReport(dir);
+      const prompt = await buildSkillPrompt({
+        name: "coder",
+        projectDir: dir,
+        instruction: "Implemente X.",
+        agentsMd: "# AGENTS\n",
+        projectKind: "static",
+      });
+
+      expect(prompt).not.toContain("mapa de arquitetura");
+      expect(prompt).not.toContain("- módulo A");
+      // O restante continua íntegro.
+      expect(prompt).toContain("TAREFA AGORA:\nImplemente X.");
+      expect(prompt).toContain("# coder skill");
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
 });

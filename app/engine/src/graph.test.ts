@@ -109,6 +109,23 @@ describe("runGraphify (contrato)", () => {
     }
   });
 
+  it("restringe o scan a src/ quando ele existe", async () => {
+    const dir = await makeProjectDir(true);
+    try {
+      await fs.mkdir(path.join(dir, "src"), { recursive: true });
+      const child = fakeChild();
+      spawnMock.mockReturnValue(asChildProcess(child));
+
+      const promise = runGraphify(dir);
+      child.emit("close", 0);
+      await promise;
+
+      expect(spawnMock).toHaveBeenCalledWith("graphify", ["update", path.join(dir, "src")], { cwd: dir });
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("processo excede o timeout → timeout (e mata o processo)", async () => {
     vi.useFakeTimers();
     try {
@@ -138,7 +155,7 @@ describe("generateGraphFor (emissão de eventos)", () => {
       child.emit("close", 0);
       await promise;
 
-      expect(events.map((e) => e.type)).toEqual(["graph-start", "graph-ready"]);
+      expect(events.map((e) => e.type)).toEqual(["graph-start", "status", "graph-ready"]);
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
     }
@@ -152,6 +169,6 @@ describe("generateGraphFor (emissão de eventos)", () => {
     const events: EngineEvent[] = [];
     await generateGraphFor((e) => events.push(e), "/tmp/fake-project");
 
-    expect(events.map((e) => e.type)).toEqual(["graph-start", "graph-error"]);
+    expect(events.map((e) => e.type)).toEqual(["graph-start", "status", "graph-error"]);
   });
 });

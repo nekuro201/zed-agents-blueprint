@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Brain, FileCheck2, FolderOpen, MessageSquare } from "lucide-react";
+import { Brain, CornerDownRight, FileCheck2, FolderOpen, MessageSquare, TriangleAlert } from "lucide-react";
 import { ProjectBar } from "../ProjectBar";
 import { ChatThreadPrompt } from "./ChatThreadPrompt";
 import { ThreadInspector } from "./ThreadInspector";
@@ -16,6 +16,8 @@ type ThreadMsg =
       thinking: string;
       text: string;
       model?: string;
+      fallback?: boolean;
+      costReason?: "pricing" | "sdk" | "no-pricing" | "not-found" | "not-loaded";
       stats?: { tokens: { total: number }; cost: number };
     };
 
@@ -24,11 +26,19 @@ export interface PlannerCard {
   thinking: string;
   text: string;
   model?: string;
+  fallback?: boolean;
+  costReason?: "pricing" | "sdk" | "no-pricing" | "not-found" | "not-loaded";
   ended: boolean;
   stats?: { tokens: { total: number }; cost: number };
 }
 
 const SUMMARY_FALLBACK = "PLAN.md gerado/atualizado. Inicie o loop no orquestrador.";
+
+const COST_REASON_TEXT: Record<string, string> = {
+  "no-pricing": "O modelo não reporta preço na API do llmgateway — custo indisponível.",
+  "not-found": "Modelo não encontrado na lista do llmgateway — sem preço para calcular o custo.",
+  "not-loaded": "Lista de modelos/preços não carregada — custo indisponível.",
+};
 
 function shortModel(model?: string): string {
   if (!model) return "";
@@ -61,6 +71,14 @@ function PlannerCardView({
       <div className="mb-2 flex items-center gap-1.5 border-b border-edge pb-2 text-[11px] font-semibold text-amber-300">
         <Brain size={12} aria-hidden /> Planejador
         {card.model && <span className="font-mono text-[10px] font-normal text-zinc-500">{shortModel(card.model)}</span>}
+        {card.fallback && (
+          <span
+            title="Modelo configurado não encontrado; usando o fallback padrão"
+            className="inline-flex items-center gap-1 rounded bg-amber-950/50 px-1.5 py-px text-[9px] font-semibold text-amber-400"
+          >
+            <CornerDownRight size={10} aria-hidden /> fallback
+          </span>
+        )}
         {live && (
           <span className="ml-auto flex items-center gap-1 text-[10px] text-amber-400">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
@@ -118,9 +136,17 @@ function PlannerCardView({
       )}
 
       {!live && card.stats && (
-        <div className="mt-1.5 flex gap-3 border-t border-edge/40 pt-1.5 text-[10px] text-zinc-600">
+        <div className="mt-1.5 flex flex-wrap items-center gap-3 border-t border-edge/40 pt-1.5 text-[10px] text-zinc-600">
           <span>Σ {card.stats.tokens.total} tokens</span>
           <span className="text-amber-400/70">US$ {card.stats.cost.toFixed(4)}</span>
+          {card.costReason && card.costReason !== "pricing" && card.costReason !== "sdk" && (
+            <span
+              title={COST_REASON_TEXT[card.costReason] ?? "Custo indisponível"}
+              className="inline-flex items-center gap-1 rounded bg-amber-950/50 px-1.5 py-px text-[9px] font-semibold text-amber-400"
+            >
+              <TriangleAlert size={10} aria-hidden /> custo indisponível
+            </span>
+          )}
         </div>
       )}
     </div>
@@ -180,6 +206,8 @@ export function ChatThreadView({
           thinking: plannerCard.thinking,
           text: plannerCard.text.trim() || SUMMARY_FALLBACK,
           model: plannerCard.model,
+          fallback: plannerCard.fallback,
+          costReason: plannerCard.costReason,
           stats: plannerCard.stats,
         },
       ]);

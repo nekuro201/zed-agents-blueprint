@@ -23,14 +23,16 @@ describe("reducer 2.2.3 — acumuladores e timer", () => {
     expect(s.cost).toBeCloseTo(1.7);
   });
 
-  it("zera os contadores quando um novo loop inicia (status starting)", () => {
+  it("não zera tokens/custo ao iniciar novo loop (acumula por sessão)", () => {
     let s = apply(initialState, { type: "status", status: "running" });
     s = apply(s, { type: "agent-end", role: "coder", stats: { tokens: { input: 100, output: 10, total: 110 }, cost: 1 } });
     expect(s.tokens.total).toBe(110);
+    expect(s.cost).toBeCloseTo(1);
     s = apply(s, { type: "status", status: "starting" });
-    expect(s.tokens).toEqual({ input: 0, output: 0, total: 0 });
-    expect(s.cost).toBe(0);
+    expect(s.tokens.total).toBe(110);
+    expect(s.cost).toBeCloseTo(1);
     expect(s.elapsed).toBe(0);
+    expect(s.completed).toBe(false);
   });
 
   it("só incrementa elapsed com a ação tick e apenas enquanto roda/started", () => {
@@ -103,5 +105,34 @@ describe("reducer E3 — status do grafo", () => {
     s = apply(s, { type: "graph-error", message: "Falha ao gerar o grafo: not-installed." });
     expect(s.graphStatus).toBe("empty");
     expect(s.graphError).toBe("Falha ao gerar o grafo: not-installed.");
+  });
+});
+
+describe("reducer E4 Fase 1 — telemetria (durationMs)", () => {
+  it("contador de duração começa zerado", () => {
+    expect(initialState.durationMs).toBe(0);
+  });
+
+  it("acumula durationMs global a cada agent-end", () => {
+    let s = apply(initialState, { type: "status", status: "running" });
+    s = apply(s, { type: "agent-end", role: "techlead", stats: { tokens: { input: 1, output: 1, total: 2 }, cost: 0.1 }, durationMs: 4200 });
+    s = apply(s, { type: "agent-end", role: "coder", stats: { tokens: { input: 1, output: 1, total: 2 }, cost: 0.1 }, durationMs: 1800 });
+    expect(s.durationMs).toBe(6000);
+  });
+
+  it("retém durationMs no card de agente da timeline", () => {
+    let s = apply(initialState, { type: "status", status: "running" });
+    s = apply(s, { type: "agent-start", role: "coder", model: "llmgateway/deepseek-v4-flash" });
+    s = apply(s, { type: "agent-end", role: "coder", stats: { tokens: { input: 1, output: 1, total: 2 }, cost: 0.1 }, durationMs: 950 });
+    const card = s.timeline.find((it) => it.kind === "agent");
+    expect(card).toMatchObject({ kind: "agent", role: "coder", ended: true, durationMs: 950 });
+  });
+
+  it("zera durationMs quando um novo loop inicia (status starting)", () => {
+    let s = apply(initialState, { type: "status", status: "running" });
+    s = apply(s, { type: "agent-end", role: "coder", stats: { tokens: { input: 1, output: 1, total: 2 }, cost: 0.1 }, durationMs: 1500 });
+    expect(s.durationMs).toBe(1500);
+    s = apply(s, { type: "status", status: "starting" });
+    expect(s.durationMs).toBe(0);
   });
 });

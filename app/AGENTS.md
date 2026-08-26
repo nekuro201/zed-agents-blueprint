@@ -37,9 +37,11 @@ Decisões firmadas (riscos de tempo resolvidos):
 1. **Inspector de docs = somente leitura.** A UI NUNCA edita `PLAN.md`/`TODO_BATCH.md`.
    Quem marca fase/status é o **engine** (edição determinística local). Sem
    `markPlan`/`activatePlan` interativos na versão 1. (Risco #1)
-2. **Configuração de modelos = campos manuais.** Sem dropdown do registry: cada
-   agente tem campos de texto para "modelo" e "opção de thinking", preenchidos à
-   mão e persistidos localmente. Valores padrão podem vir do engine. (Risco #2)
+2. **Configuração de modelos = campos manuais com seletor de busca opcional.**
+   Cada agente tem campos de texto para "modelo" e "opção de thinking",
+   preenchidos à mão e persistidos localmente. Um seletor com busca (drop-down
+   pesquisável) consulta a API pública do llmgateway e preenche o campo
+   automaticamente — o texto livre segue como fallback. (Risco #2)
 3. **Performance = cap/dedupe.** A UI deve permanecer fluida em loops longos:
    agregar `token/thinking` por card de agente, limitar nº de cards e linhas do
    terminal (descartar os mais antigos), estado nunca cresce sem limite. (Risco #3)
@@ -136,11 +138,11 @@ app/
 
 ## Protocolo (Engine ⇄ UI)
 
-- **Comando** (UI → stdin, 1 linha JSON): `start | pause | resume | inject | stop | ping`.
+- **Comando** (UI → stdin, 1 linha JSON): `start | pause | resume | inject | stop | crisis-accept | crisis-revert | ping | plan | graph | models-list`.
 - **Evento** (stdout → UI, 1 linha JSON): `ready, status, log, phase, phase-start,
   agent-start, token, thinking, agent-message, tool-call, tool-result, agent-end,
-  test, qa-verdict, phase-done, commit, crisis, paused, resumed, injected, done,
-  error, exit`.
+  test, qa-verdict, phase-done, commit, crisis (com diff), retry, paused, resumed,
+  injected, done, error, exit`.
 - Schemas vivem em `engine/src/protocol.ts` e `src/lib/protocol.ts` (espelho).
   **Todo evento/comando é validado com Zod** antes de tocar no estado.
 
@@ -205,7 +207,8 @@ app/
    stores globais, sem barrel files — regras uso `components/` + `hooks/` simples).
    Quando evoluir, registrar a mudança aqui.
 8. **Inspector de docs é somente leitura** — a UI nunca altera `PLAN.md`/`TODO_BATCH.md`
-   (quem edita é o engine). Config de modelos usa **campos manuais**, não dropdown.
+   (quem edita é o engine). Config de modelos usa **campos manuais com seletor
+   de busca opcional** (E10) — o campo de texto livre permanece como fallback.
 9. **Performance é requisito:** cap/dedupe de eventos e linhas no terminal/UI;
    nada de estado ilimitado em execução longa.
 10. **TDD + DRY são obrigatórios** (ver seção “Desenvolvimento Guiado por TDD e DRY”).
@@ -227,6 +230,12 @@ Todo código novo segue **TDD estrito** e **DRY**, sempre na ordem **RED → GRE
 - **DRY:** não duplique lógica — extraia para função/componente reutilizável a
   partir do 2º uso. Repetições acidentais no protocolo (schemas Zod entre engine e
   UI) devem ser espelhadas de forma explícita e documentada, nunca copiadas à cega.
+- **Exceção (fases estáticas autocontidas):** fases puramente estáticas/visuais e
+  autocontidas (ex.: uma página HTML/CSS única, sem `package.json` nem arquivos de
+  teste) **não exigem testes automatizados** — a verificação é por **inspeção direta
+  dos entregáveis** (o engine classifica o projeto como `static` e usa um caminho
+  rápido determinístico, sem fabricar testes). Essa exceção **não** afrouxa o TDD
+  para código real (Node/React/TS), que segue obrigatório.
 - **Ferramenta de teste:** Vitest + React Testing Library (frontend) e Vitest/Node
   (engine). Comando padrão: `pnpm test`. A configuração da suíte faz parte do setup
   e deve existir ANTES de implementar qualquer feature nova.

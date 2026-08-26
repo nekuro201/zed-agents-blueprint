@@ -18,7 +18,7 @@ import { pickDirectory } from "./components/ProjectBar";
 import { loadRecents, removeRecent, upsertRecent, type WorkspaceSession } from "./lib/workspaceSession";
 import { loadEnginePrefs, saveEnginePrefs, type EnginePrefs } from "./lib/enginePrefs";
 import { loadModelConfig, saveModelConfig, type AgentModelConfig } from "./lib/modelConfig";
-import type { AgentModels } from "./lib/protocol";
+import type { AgentModels, AgentThinking } from "./lib/protocol";
 import { createGitBranch, listGitBranches } from "./lib/engine";
 import { folderName, parseGitBranches } from "./lib/gitRepo";
 import type { ExplorerGroup } from "./components/v5/ExplorerTree";
@@ -43,7 +43,7 @@ export default function App() {
     for (let i = state.timeline.length - 1; i >= 0; i--) {
       const it = state.timeline[i];
       if (it?.kind === "agent" && it.role === "planejador") {
-        return { thinking: it.thinking, text: it.text, model: it.model, ended: it.ended, stats: it.stats };
+        return { thinking: it.thinking, text: it.text, model: it.model, fallback: it.fallback, costReason: it.costReason, ended: it.ended, stats: it.stats };
       }
     }
     return null;
@@ -89,6 +89,9 @@ export default function App() {
     setSession(next);
     // Workspace recém-aberto sempre começa na Chat da Thread (view é global no App).
     setView("chat-thread");
+    // E10 — spawna o engine no boot do workspace para que comandos como
+    // `models-list` tenham um processo alvo mesmo antes do loop iniciar.
+    void actions.ensureEngine(input.path, mock);
   };
 
   const forgetRecent = (path: string) => {
@@ -116,19 +119,33 @@ export default function App() {
   };
 
   /**
-   * Modelos por papel a partir da config salva (ModelSettingsModal + settings da home).
-   * O Juiz TDD (qa) também dirige o leitor (fallback) e o protocolo de crise.
+   * Modelos por papel a partir da config salva (ModelSettingsModal). Mapeia 1:1
+   * os 7 papéis do protocolo — sem colapsar Leitor/Testador/Crise em outro papel.
    */
   const buildModels = (): AgentModels => {
     const cfg = loadModelConfig();
-    const prefs = loadEnginePrefs();
     return {
-      planejador: cfg.plan.model,
-      leitor: prefs.defaultModel,
+      planejador: cfg.planejador.model,
+      leitor: cfg.leitor.model,
       techlead: cfg.techlead.model,
       coder: cfg.coder.model,
+      testador: cfg.testador.model,
       qa: cfg.qa.model,
-      crise: cfg.qa.model,
+      crise: cfg.crise.model,
+    };
+  };
+
+  /** Thinking por papel a partir da config salva (E10). */
+  const buildThinking = (): AgentThinking => {
+    const cfg = loadModelConfig();
+    return {
+      planejador: cfg.planejador.thinking,
+      leitor: cfg.leitor.thinking,
+      techlead: cfg.techlead.thinking,
+      coder: cfg.coder.thinking,
+      testador: cfg.testador.thinking,
+      qa: cfg.qa.thinking,
+      crise: cfg.crise.thinking,
     };
   };
 
@@ -168,11 +185,16 @@ export default function App() {
     );
   }
 
+  /** E4 — quando há erro, mostra o contexto (fase/agente) na statusbar. */
+  const statusFase = state.error
+    ? [state.errorFase, state.errorRole].filter(Boolean).join(" · ") || state.phase?.fase || session.path
+    : (state.phase?.fase ?? session.path);
+
   const statusBar = (
     <StatusBar
       motor={motor}
       branch={session.name}
-      fase={state.phase?.fase ?? session.path}
+      fase={statusFase}
       tokens={`${formatTokens(state.tokens.total)} · ${formatCost(state.cost)}`}
       elapsed={`${state.elapsed}s`}
       version={`v${state.version ?? "0.1.0"}`}
@@ -233,9 +255,10 @@ export default function App() {
             planComplete={planComplete}
             projectDir={projectDir}
             aborting={aborting}
+            actions={actions}
             onStart={() => {
               if (!docs.plan || planComplete) return;
-              void actions.start(projectDir.trim(), mock, buildModels());
+              void actions.start(projectDir.trim(), mock, buildModels(), buildThinking());
             }}
             onStop={() => {
               setAborting(true);
@@ -260,7 +283,7 @@ export default function App() {
               const dir = await pickDirectory();
               if (dir) persist(dir);
             }}
-            onGenerate={(prompt) => void actions.generatePlan(projectDir, prompt, mock, buildModels())}
+            onGenerate={(prompt) => void actions.generatePlan(projectDir, prompt, mock, buildModels(), buildThinking())}
           />
         }
         graphView={graphView}

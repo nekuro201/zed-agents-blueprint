@@ -1,10 +1,11 @@
-import type { EngineUiState } from "../hooks/useEngine";
+import type { EngineUiState, EngineActions } from "../hooks/useEngine";
 import type { ProjectDocs } from "../hooks/useProjectDocs";
 import { ArrowLeft, CheckCircle2, GitGraph, TriangleAlert } from "lucide-react";
 import { LoopTerminal } from "./v5/LoopTerminal";
 import { DocInspectorPane } from "./v5/DocInspectorPane";
 import { LoopTop } from "./v5/LoopTop";
 import { pipelineFromTimeline } from "../lib/pipeline";
+import { aggregateTelemetry } from "../lib/telemetry";
 
 /**
  * Painel do Loop v5: loop-top (arts + pipeline) + work (terminal | inspector).
@@ -22,6 +23,7 @@ export function EnginePanel({
   planComplete,
   projectDir,
   aborting = false,
+  actions,
   onStart,
   onStop,
   onRegenerateGraph,
@@ -37,11 +39,15 @@ export function EnginePanel({
   /** Path do workspace aberto (sessão) — usado no gatilho do grafo antes do engine conectar. */
   projectDir?: string;
   aborting?: boolean;
+  /** E4 — actions para o card de crise (crisisAccept/crisisRevert). */
+  actions?: Pick<EngineActions, "crisisAccept" | "crisisRevert">;
   onStart?: () => void;
   onStop?: () => void;
   onRegenerateGraph?: () => void;
   onBackToChat?: () => void;
 }) {
+  const crisisActive = state.status === "waiting" && state.stage === "crisis";
+
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {notTauri && (
@@ -75,6 +81,9 @@ export function EnginePanel({
         tokens={state.tokens.total}
         cost={state.cost}
         agents={pipelineFromTimeline(state.timeline)}
+        perAgent={aggregateTelemetry(state.timeline)}
+        stage={state.stage}
+        status={state.status}
         running={state.running}
         hasPlan={hasPlan}
         planComplete={planComplete}
@@ -104,7 +113,13 @@ export function EnginePanel({
 
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-h-0 overflow-hidden">
-          <LoopTerminal items={state.timeline} />
+          <LoopTerminal
+            items={state.timeline}
+            crisisActive={crisisActive}
+            onCrisisAccept={actions?.crisisAccept}
+            onCrisisRevert={actions?.crisisRevert}
+            onFocusInspector={() => {}}
+          />
         </div>
         <DocInspectorPane docs={docs} />
       </div>

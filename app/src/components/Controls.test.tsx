@@ -16,6 +16,7 @@ function state(partial: Partial<EngineUiState>): EngineUiState {
     elapsed: 0,
     tokens: { input: 0, output: 0, total: 0 },
     cost: 0,
+    durationMs: 0,
     projectDir: null,
     phase: null,
     error: null,

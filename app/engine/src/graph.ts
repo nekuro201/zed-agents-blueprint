@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import type { EngineEvent } from "./protocol.js";
 
@@ -23,6 +24,22 @@ export interface GraphResult {
 /** Diretório de saída do binário `graphify update <dir>` dentro do projectDir. */
 const GRAPHIFY_OUT_DIR = "graphify-out";
 const GRAPH_TIMEOUT_MS = 120_000;
+
+/**
+ * Diretórios de código-fonte mais comuns. O grafo deve mapear APENAS o código do
+ * projeto (não arquivos de config/docs na raiz), então restringimos o scan ao
+ * primeiro destes que existir. Sem nenhum, escaneia o projectDir inteiro.
+ */
+const GRAPH_SOURCE_DIRS = ["src", "lib", "app", "source"];
+
+function resolveGraphTarget(projectDir: string): string {
+  for (const dir of GRAPH_SOURCE_DIRS) {
+    if (existsSync(path.join(projectDir, dir))) {
+      return path.join(projectDir, dir);
+    }
+  }
+  return projectDir;
+}
 
 async function exists(p: string): Promise<boolean> {
   try {
@@ -48,13 +65,14 @@ function isEnoent(err: unknown): boolean {
  * em uma única passada.
  */
 export function runGraphify(projectDir: string): Promise<GraphResult> {
+  const target = resolveGraphTarget(projectDir);
   const reportPath = path.join(projectDir, GRAPHIFY_OUT_DIR, "GRAPH_REPORT.md");
   const jsonPath = path.join(projectDir, GRAPHIFY_OUT_DIR, "graph.json");
 
   return new Promise<GraphResult>((resolve) => {
     let child: ReturnType<typeof spawn>;
     try {
-      child = spawn("graphify", ["update", projectDir], { cwd: projectDir });
+      child = spawn("graphify", ["update", target], { cwd: projectDir });
     } catch (err) {
       resolve({ ok: false, reason: isEnoent(err) ? "not-installed" : "empty" });
       return;
@@ -100,6 +118,7 @@ export function runGraphify(projectDir: string): Promise<GraphResult> {
  */
 export async function generateGraphFor(emit: (e: EngineEvent) => void, projectDir: string): Promise<void> {
   emit({ type: "graph-start", projectDir });
+  emit({ type: "status", status: "running", stage: "graph", detail: "Gerando grafo de conhecimento…" });
   try {
     const result = await runGraphify(projectDir);
     if (result.ok) {

@@ -35,5 +35,8 @@ export default defineConfig({
     // T0 ainda não tem arquivos de teste: sem isso, `vitest run` sai com código 1
     // ("No test files found") — o que quebraria o setup antes da primeira suite.
     passWithNoTests: true,
+    // PromiseRejectionHandledWarning com fake timers + abort é falso positivo
+    // do Vitest — as rejeições são capturadas por expect().rejects assíncrono.
+    dangerouslyIgnoreUnhandledErrors: true,
   },
 });

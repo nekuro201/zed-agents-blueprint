@@ -10,11 +10,15 @@ describe("ModelSettingsModal", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("renderiza os 4 agentes com campos manuais de modelo e thinking", () => {
+  it("renderiza os 7 agentes com campos manuais de modelo e thinking", () => {
     render(<ModelSettingsModal open config={DEFAULT_MODEL_CONFIG} onSave={() => {}} onClose={() => {}} />);
-    expect(screen.getByLabelText(/modelo do planejador/i)).toHaveValue(DEFAULT_MODEL_CONFIG.plan.model);
+    expect(screen.getByLabelText(/modelo do planejador/i)).toHaveValue(DEFAULT_MODEL_CONFIG.planejador.model);
+    expect(screen.getByLabelText(/modelo do leitor/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/modelo do techlead/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/modelo do coder/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/modelo do testador/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/modelo do juiz tdd/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/modelo do crise/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/thinking do techlead/i)).toBeInTheDocument();
   });
 

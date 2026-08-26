@@ -1,8 +1,9 @@
 import readline from "node:readline";
 import { EngineCommandSchema, emit, type EngineCommand, type EngineEvent } from "./protocol.js";
-import { createGate, generatePlan, runOrchestrator, queueInjection, triggerPause, triggerResume, triggerStop } from "./orchestrator.js";
+import { createGate, generatePlan, runOrchestrator, queueInjection, triggerPause, triggerResume, triggerStop, triggerCrisisAccept, triggerCrisisRevert } from "./orchestrator.js";
 import { runMock } from "./mock.js";
 import { generateGraphFor } from "./graph.js";
+import { fetchModelsList, registerModelInPiAgent } from "./models.js";
 
 export const ENGINE_VERSION = "0.1.0";
 
@@ -54,7 +55,7 @@ async function main(): Promise<void> {
       if (args.mock) {
         await runMock({ projectDir: cmd.projectDir, emit: emitEvent, gate });
       } else {
-        await runOrchestrator({ projectDir: cmd.projectDir, emit: emitEvent, gate, models: cmd.models });
+        await runOrchestrator({ projectDir: cmd.projectDir, emit: emitEvent, gate, models: cmd.models, thinking: cmd.thinking });
       }
     } catch (err) {
       emit({ type: "error", message: (err as Error).message });
@@ -70,7 +71,7 @@ async function main(): Promise<void> {
     }
     running = true;
     try {
-      await generatePlan({ projectDir: cmd.projectDir, prompt: cmd.prompt, emit, mock: args.mock, model: cmd.models?.planejador });
+      await generatePlan({ projectDir: cmd.projectDir, prompt: cmd.prompt, emit, mock: args.mock, model: cmd.models?.planejador, thinking: cmd.thinking?.planejador });
     } catch (err) {
       emit({ type: "error", message: (err as Error).message });
     } finally {
@@ -127,9 +128,30 @@ async function main(): Promise<void> {
         break;
       case "stop":
         if (running) {
+          emit({ type: "status", status: "stopping", detail: "Parando execução…" });
           triggerStop(gate);
           emit({ type: "log", level: "info", message: "Parando execução…" });
         }
+        break;
+      case "crisis-accept":
+        if (running) {
+          triggerCrisisAccept(gate);
+          emit({ type: "log", level: "info", message: "✅ Crise aceita. Retomando o loop…" });
+        }
+        break;
+      case "crisis-revert":
+        if (running) {
+          triggerCrisisRevert(gate);
+          emit({ type: "log", level: "info", message: "↩️ Crise revertida. Encerrando para auditoria humana." });
+        }
+        break;
+      case "models-list":
+        void fetchModelsList();
+        break;
+      case "models-register":
+        void registerModelInPiAgent(cmd).then((r) => {
+          emit({ type: "log", level: r.ok ? "info" : "warn", message: r.message });
+        });
         break;
       case "ping":
         emit({ type: "log", level: "debug", message: "pong" });

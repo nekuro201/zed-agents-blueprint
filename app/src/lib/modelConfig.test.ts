@@ -10,12 +10,27 @@ describe("modelConfig (persistência manual de modelos)", () => {
     expect(loadModelConfig()).toEqual(DEFAULT_MODEL_CONFIG);
   });
 
+  it("expõe os 7 papéis no default (Planejador + 6 do loop)", () => {
+    expect(Object.keys(DEFAULT_MODEL_CONFIG)).toEqual([
+      "planejador",
+      "leitor",
+      "techlead",
+      "coder",
+      "testador",
+      "qa",
+      "crise",
+    ]);
+  });
+
   it("persiste e recarrega a configuração completa", () => {
     const cfg = {
-      plan: { model: "llmgateway/deepseek-v4-flash", thinking: "Low" },
+      planejador: { model: "llmgateway/deepseek-v4-flash", thinking: "Standard" },
+      leitor: { model: "llmgateway/deepseek-v4-flash", thinking: "Standard" },
       techlead: { model: "llmgateway/grok-4-5", thinking: "Medium" },
       coder: { model: "llmgateway/deepseek-v4-flash", thinking: "High" },
+      testador: { model: "llmgateway/deepseek-v4-flash", thinking: "Standard" },
       qa: { model: "llmgateway/grok-4-5", thinking: "Maximum" },
+      crise: { model: "llmgateway/grok-4-5", thinking: "Medium" },
     };
     saveModelConfig(cfg);
     expect(loadModelConfig()).toEqual(cfg);
@@ -27,7 +42,8 @@ describe("modelConfig (persistência manual de modelos)", () => {
   });
 
   it("volta para os defaults se o dado salvo não obedecer o schema (Zod)", () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ plan: { model: "", thinking: "" } }));
+    const invalid = { ...DEFAULT_MODEL_CONFIG, coder: { model: "", thinking: "" } };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(invalid));
     expect(loadModelConfig()).toEqual(DEFAULT_MODEL_CONFIG);
   });
 });

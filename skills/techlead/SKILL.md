@@ -62,3 +62,12 @@ Sua primeira ação invisível DEVE ser ler o arquivo `AGENTS.md` na raiz do pro
     - `- [ ] Executar o comando de linter do projeto (ex: pnpm lint ou correspondente) e corrigir quaisquer avisos.`
 
 Ao ser acionado, atualize os marcadores de títulos no `PLAN.md`, gere o `TODO_BATCH.md` na raiz e informe resumidamente ao usuário qual trecho exato foi fatiado.
+
+## Projetos Estáticos (sem infraestrutura de teste)
+
+Quando o projeto **não tem `package.json` nem arquivos de teste** (ex.: uma página HTML/CSS única, um protótipo estático):
+
+- **Gere um batch enxuto** com tarefas de **entrega direta dos arquivos pedidos** (ex.: criar `index.html`, criar `style.css`). Sem tarefas de teste e sem checkboxes de "executar comando de teste/linter".
+- **Limite a inspeção ao mínimo:** apenas confirme os arquivos existentes e a estrutura básica. Não faça varredura profunda (package.json/tsconfig/globs) que não se aplica.
+- **NÃO ordene a criação de testes** (`RED/GREEN Phase`, `.test`/`.spec`, runners) — em projeto estático isso fabrica arquivos desnecessários e infla custo/tempo.
+- **Critérios de aceite = entregável existe e corresponde ao pedido** (conteúdo verificado por inspeção direta), não "teste verde".

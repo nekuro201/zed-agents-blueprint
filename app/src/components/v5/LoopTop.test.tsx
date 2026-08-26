@@ -16,6 +16,21 @@ describe("LoopTop", () => {
     expect(screen.getByText(/8\.4k/)).toBeInTheDocument();
   });
 
+  it("não mostra aviso de preço quando há custo", () => {
+    render(<LoopTop planProgress={0} elapsed={0} tokens={8400} cost={1.25} agents={[]} hasPlan planComplete={false} />);
+    expect(screen.queryByText(/preço não configurado/i)).not.toBeInTheDocument();
+  });
+
+  it("mostra aviso quando há tokens mas custo zerado (preço ausente)", () => {
+    render(<LoopTop planProgress={0} elapsed={0} tokens={8400} cost={0} agents={[]} hasPlan planComplete={false} />);
+    expect(screen.getByText(/preço não configurado/i)).toBeInTheDocument();
+  });
+
+  it("não mostra aviso quando não há tokens nem custo (loop ainda não rodou)", () => {
+    render(<LoopTop planProgress={0} elapsed={0} tokens={0} cost={0} agents={[]} hasPlan planComplete={false} />);
+    expect(screen.queryByText(/preço não configurado/i)).not.toBeInTheDocument();
+  });
+
   it("Iniciar Loop fica disabled sem PLAN e com PLAN completo", () => {
     const { rerender } = render(
       <LoopTop planProgress={0} elapsed={0} tokens={0} cost={0} agents={[]} hasPlan={false} planComplete={false} />,

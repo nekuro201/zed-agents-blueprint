@@ -35,58 +35,58 @@
 
 ---
 
-## [ ] Fase 0 — Fundamentos (pré-tarefa) [⚡ Flash]
-- [ ] Confirmar base verde: `pnpm test`, `tsc --noEmit`, `vite build`.
-- [ ] Confirmar que `ThreadInspector` (5 abas) e `DocInspectorPane` (PLAN/TODO/LOG) já
+## [x] Fase 0 — Fundamentos (pré-tarefa) [⚡ Flash]
+- [x] Confirmar base verde: `pnpm test`, `tsc --noEmit`, `vite build`.
+- [x] Confirmar que `ThreadInspector` (5 abas) e `DocInspectorPane` (PLAN/TODO/LOG) já
       atendem ao inspector do v7 — nenhuma mudança necessária neles.
 
-## [ ] Fase 1 — Shell: remover sidebar esquerda → modal Orquestrador [🛠️ Pro-Standard]
-- [ ] Mudar o layout do `Shell` para `rail + main + explorer` (remover `Sidebar` da coluna central).
-- [ ] Criar `OrchestratorModal` (novo componente): **Iniciar Loop** (disabled sem PLAN ou
+## [x] Fase 1 — Shell: remover sidebar esquerda → modal Orquestrador [🛠️ Pro-Standard]
+- [x] Mudar o layout do `Shell` para `rail + main + explorer` (remover `Sidebar` da coluna central).
+- [x] Criar `OrchestratorModal` (novo componente): **Iniciar Loop** (disabled sem PLAN ou
       PLAN completo), **Abortar Loop**, roster dos 4 agentes (modelo/thinking) e botão
       "Configurar modelos" → abre `ModelSettingsModal`.
-- [ ] Botão **"Orquestrador"** no `LoopTop` (ao lado do timer/tokens) abre o modal.
-- [ ] Mover `onStart`/`startDisabled`/`planComplete` do `Sidebar` para o modal (e/ou `App`).
-- [ ] Rail v7: manter as 3 views + botões **Explorer** (toggle) e **Settings**; o botão
+- [x] Botão **"Orquestrador"** no `LoopTop` (ao lado do timer/tokens) abre o modal.
+- [x] Mover `onStart`/`startDisabled`/`planComplete` do `Sidebar` para o modal (e/ou `App`).
+- [x] Rail v7: manter as 3 views + botões **Explorer** (toggle) e **Settings**; o botão
       **Grafo** entra junto com o E3.
-- [ ] Remover/desativar `Sidebar.tsx` (ou reaproveitá-lo como base do modal).
-- [ ] RED→GREEN: shell renderiza sem sidebar; modal abre/fecha; Iniciar Loop respeita
+- [x] Remover/desativar `Sidebar.tsx` (ou reaproveitá-lo como base do modal).
+- [x] RED→GREEN: shell renderiza sem sidebar; modal abre/fecha; Iniciar Loop respeita
       `hasPlan`/`planComplete`.
 
-## [ ] Fase 2 — Explorer de threads [🛠️ Pro-Standard]
-- [ ] Evoluir `ExplorerTree` para árvore com **seleção de thread ativa** (`selectThread`).
-- [ ] Estados por branch (`ok`/`run`/`new`/`err`) + **legenda** ("Status da thread").
-- [ ] `markAsSeen` para branches `unread`/`alert` (limpa o indicador ao clicar).
-- [ ] Manter estrutura multi-projeto via `ExplorerGroup` (UI only, sem persistência).
-- [ ] RED→GREEN: seleção muda `data-active`; legenda renderiza; `markAsSeen` limpa o indicador.
+## [x] Fase 2 — Explorer de threads [🛠️ Pro-Standard]
+- [x] Evoluir `ExplorerTree` para árvore com **seleção de thread ativa** (`selectThread`).
+- [x] Estados por branch (`ok`/`run`/`new`/`err`) + **legenda** ("Status da thread").
+- [x] `markAsSeen` para branches `unread`/`alert` (limpa o indicador ao clicar).
+- [x] Manter estrutura multi-projeto via `ExplorerGroup` (UI only, sem persistência).
+- [x] RED→GREEN: seleção muda `data-active`; legenda renderiza; `markAsSeen` limpa o indicador.
 
-## [ ] Fase 3 — Chat Global real [⚡ Flash]
-- [ ] Substituir o placeholder de `chat-global` por view real: view-bar (chip "Visão total"
+## [x] Fase 3 — Chat Global real [⚡ Flash]
+- [x] Substituir o placeholder de `chat-global` por view real: view-bar (chip "Visão total"
       + botão **Histórico**), estado vazio ilustrado e composer
       ("Pergunte sobre qualquer thread deste projeto…").
-- [ ] Reutilizar `ChatThreadPrompt`/composer (sem lógica de envio real — UI only).
-- [ ] RED→GREEN: view renderiza view-bar + empty state + composer.
+- [x] Reutilizar `ChatThreadPrompt`/composer (sem lógica de envio real — UI only).
+- [x] RED→GREEN: view renderiza view-bar + empty state + composer.
 
-## [ ] Fase 4 — Modal de Histórico / Nova sessão (UI only) [🛠️ Pro-Standard]
-- [ ] Criar `HistoryModal`: lista de sessões por branch + ação **"Nova sessão (limpa contexto)"**.
-- [ ] Botão **"Histórico"** (⌥H) na chat-thread e chat-global abre o modal (título contextual thread/global).
-- [ ] Lista com seed estática (igual ao protótipo) — persistência real é E5.
-- [ ] RED→GREEN: modal abre/fecha; lista renderiza; "Nova sessão" emite callback (no-op por ora).
+## [x] Fase 4 — Modal de Histórico / Nova sessão (UI only) [🛠️ Pro-Standard]
+- [x] Criar `HistoryModal`: lista de sessões por branch + ação **"Nova sessão (limpa contexto)"**.
+- [x] Botão **"Histórico"** (⌥H) na chat-thread e chat-global abre o modal (título contextual thread/global).
+- [x] Lista com seed estática (igual ao protótipo) — persistência real é E5.
+- [x] RED→GREEN: modal abre/fecha; lista renderiza; "Nova sessão" emite callback (no-op por ora).
 
-## [ ] Fase 5 — StatusBar "thinking por agente" [⚡ Flash]
-- [ ] Adicionar campo "thinking por agente" na `StatusBar` (derivado do estado do loop).
-- [ ] RED→GREEN: nova prop renderiza/oculta conforme estado.
+## [x] Fase 5 — StatusBar "thinking por agente" [⚡ Flash]
+- [x] Adicionar campo "thinking por agente" na `StatusBar` (derivado do estado do loop).
+- [x] RED→GREEN: nova prop renderiza/oculta conforme estado.
 
-## [ ] Fase 6 — Responsividade [⚡ Flash]
-- [ ] Explorer vira **drawer overlay < 1180px** (absoluto + sombra), recolhível.
-- [ ] < 860px: reduzir paddings do chat e esconder o label "Global" do chip de tokens.
-- [ ] RED→GREEN: comportamento do drawer testado (classe responsiva / toggle).
+## [x] Fase 6 — Responsividade [⚡ Flash]
+- [x] Explorer vira **drawer overlay < 1180px** (absoluto + sombra), recolhível.
+- [x] < 860px: reduzir paddings do chat e esconder o label "Global" do chip de tokens.
+- [x] RED→GREEN: comportamento do drawer testado (classe responsiva / toggle).
 
-## [ ] Fase 7 — Integração & validação [⚡ Flash]
-- [ ] Fluxo ponta a ponta (mock): home → workspace → chat thread → orquestrador (modal)
+## [x] Fase 7 — Integração & validação [⚡ Flash]
+- [x] Fluxo ponta a ponta (mock): home → workspace → chat thread → orquestrador (modal)
       → loop → explorer seleciona branch.
-- [ ] `pnpm test`, `tsc --noEmit`, `vite build`.
-- [ ] Atualizar `ESCOPO.md`/`EPICS.md`/`AGENTS.md` se surgir decisão nova.
+- [x] `pnpm test`, `tsc --noEmit`, `vite build`.
+- [x] Atualizar `ESCOPO.md`/`EPICS.md`/`AGENTS.md` se surgir decisão nova.
 
 ---
 

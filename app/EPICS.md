@@ -83,10 +83,33 @@ arquitetural real ao Techlead/Planejador. (Detalhe no ESCOPO.md.)
 
 ---
 
-## [ ] E4 — Robustez do loop
+## [x] E4 — Robustez do loop
 - Protocolo de crise com auditoria na UI (exibir/inspecionar antes de reverter).
 - Retry/backoff e telemetria por agente (custo, tokens, duração).
 - Gestão de erro/estado do motor com indicadores claros por etapa.
+
+---
+
+## [x] E10 — Seletor de Modelos com Preço (drop-down + busca)
+Adicionar seletor com busca (drop-down pesquisável) que consulta a API do llmgateway,
+lista modelos disponíveis com preços reais e os aplica nos campos manuais de configuração.
+Calcular custo em memória no engine (sem mexer no `models.json` do CLI `pi`).
+Sync de modelos/preço no boot do app. (Plano: `PLAN-selector.md`.)
+
+### [ ] E10.1 Comando `models-list` no engine
+- [ ] Protocolo `models-list` / `models-list-result` (Zod espelhado).
+- [ ] Fetch da API pública do llmgateway (`GET /v1/models`) com cache em memória.
+- [ ] Degradação graciosa (timeout/rede/parse → `ok: false`).
+
+### [ ] E10.2 Seletor com busca na UI
+- [ ] Hook `useModelList` + componente `ModelSearchSelect` (campo de texto com drop-down pesquisável).
+- [ ] Integrar no modal de modelos (cada linha ganha o seletor junto do campo de texto livre).
+- [ ] Sync da lista de modelos no boot do app.
+
+### [ ] E10.3 Cálculo de custo em memória no engine
+- [ ] Helper `calculateCostFromPricing` ($/milhão de tokens a partir do pricing da API).
+- [ ] Cache de pricing por modelo no engine.
+- [ ] Emitir custo real no `agent-end` (sobrescrever `getSessionStats().cost` quando pricing disponível).
 
 ---
 

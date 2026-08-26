@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { engineSend, engineStart, engineStop, isTauri, onEngineEvent, onEngineExit, onEngineLog } from "../lib/engine";
-import { EngineEventSchema, type AgentModels, type AgentRole, type EngineCommand, type EngineEvent, type EngineStatus } from "../lib/protocol";
+import { EngineEventSchema, type AgentModels, type AgentThinking, type AgentRole, type EngineCommand, type EngineEvent, type EngineStatus } from "../lib/protocol";
 
 export type ToolEvent = { tool: string; args: string; ok?: boolean; summary?: string };
 
@@ -11,21 +11,25 @@ export type TimelineItem =
       kind: "agent";
       role: AgentRole;
       model?: string;
+      fallback?: boolean;
+      costReason?: "pricing" | "sdk" | "no-pricing" | "not-found" | "not-loaded";
       attempt?: number;
       maxAttempts?: number;
       ended: boolean;
       thinking: string;
       text: string;
       stats?: { tokens: { input: number; output: number; total: number }; cost: number };
+      durationMs?: number;
       tools: ToolEvent[];
     }
   | { id: number; kind: "test"; state: "start" | "ok" | "fail"; output: string }
   | { id: number; kind: "qa"; veredito: "ESPERADO" | "INESPERADO"; justificativa?: string }
   | { id: number; kind: "commit"; ok: boolean; message?: string }
-  | { id: number; kind: "crisis"; message: string }
+  | { id: number; kind: "crisis"; message: string; diff?: string }
+  | { id: number; kind: "retry"; role: AgentRole; attempt: number; maxAttempts: number; delayMs: number; reason: string }
   | { id: number; kind: "injected"; text: string }
   | { id: number; kind: "log"; level: "info" | "warn" | "error"; message: string }
-  | { id: number; kind: "status"; message: string; sub?: string };
+  | { id: number; kind: "status"; message: string; sub?: string; stage?: string; status?: string };
 
 export interface EngineUiState {
   tauri: boolean;
@@ -34,6 +38,8 @@ export interface EngineUiState {
   version: string | null;
   status: EngineStatus | "idle" | "offline";
   detail?: string;
+  /** E4 — etapa corrente do loop (derivado do stage no evento status). */
+  stage?: "reading-plan" | "techlead" | "coder" | "testador" | "qa" | "crisis" | "commit" | "graph" | "plan";
   running: boolean;
   /** Verdadiero quando o loop terminou com TODAS as fases do PLAN.md concluídas. */
   completed: boolean;
@@ -41,9 +47,14 @@ export interface EngineUiState {
   elapsed: number;
   tokens: { input: number; output: number; total: number };
   cost: number;
+  /** Telemetria E4 — duração acumulada dos agentes (wall clock, ms). */
+  durationMs: number;
   projectDir: string | null;
   phase: { fase: string | null; total: number; done: number; pct: number } | null;
   error: string | null;
+  /** E4 — contexto do erro (fase/agente onde ocorreu). */
+  errorFase?: string;
+  errorRole?: AgentRole;
   /** E3 — estado do grafo de conhecimento (derivado dos eventos graph-*). */
   graphStatus: "empty" | "loading" | "ready";
   graphError: string | null;
@@ -62,6 +73,7 @@ const initialState: EngineUiState = {
   elapsed: 0,
   tokens: { input: 0, output: 0, total: 0 },
   cost: 0,
+  durationMs: 0,
   projectDir: null,
   phase: null,
   error: null,
@@ -133,14 +145,16 @@ function reduceUncapped(state: EngineUiState, action: Action): EngineUiState {
 
     case "status": {
       const base = setStatus(ev.status, ev.detail);
+      const stage = ev.stage ?? (ev.status === "idle" || ev.status === "done" ? undefined : state.stage);
       // `planning` é SÓ a geração do plano (composer). O "Lendo PLAN.md…" do início
       // do loop NÃO conta como planning — senão travava e bloqueava o reload dos docs.
       const planning = ev.status === "starting" && (ev.detail?.includes("gerando o PLAN.md") ?? false);
       if (ev.status === "starting") {
-        // Novo loop ou nova geração: reseta o estado de conclusão e os acumuladores.
-        return { ...base, elapsed: 0, tokens: { input: 0, output: 0, total: 0 }, cost: 0, completed: false, planning };
+        // Novo loop ou nova geração: reseta timers do loop corrente,
+        // mas MANTÉM tokens/cost acumulados da sessão inteira (E10).
+        return { ...base, stage, elapsed: 0, durationMs: 0, completed: false, planning };
       }
-      return { ...base, planning: planning || (ev.status === "idle" ? false : state.planning) };
+      return { ...base, stage, planning: planning || (ev.status === "idle" ? false : state.planning) };
     }
 
     case "plan-done":
@@ -172,11 +186,11 @@ function reduceUncapped(state: EngineUiState, action: Action): EngineUiState {
           ...state,
           timeline: [
             ...copy,
-            { id: nextId++, kind: "agent", role: ev.role, model: ev.model, attempt: ev.attempt, maxAttempts: ev.maxAttempts, ended: false, thinking: "", text: "", tools: [] },
+            { id: nextId++, kind: "agent", role: ev.role, model: ev.model, fallback: ev.fallback, attempt: ev.attempt, maxAttempts: ev.maxAttempts, ended: false, thinking: "", text: "", tools: [] },
           ],
         };
       }
-      return withItem({ id: nextId++, kind: "agent", role: ev.role, model: ev.model, attempt: ev.attempt, maxAttempts: ev.maxAttempts, ended: false, thinking: "", text: "", tools: [] });
+      return withItem({ id: nextId++, kind: "agent", role: ev.role, model: ev.model, fallback: ev.fallback, attempt: ev.attempt, maxAttempts: ev.maxAttempts, ended: false, thinking: "", text: "", tools: [] });
     }
 
     case "token":
@@ -206,17 +220,24 @@ function reduceUncapped(state: EngineUiState, action: Action): EngineUiState {
       });
 
     case "agent-end": {
-      const base = patchAgent((a) => ({ ...a, ended: true, stats: ev.stats }));
-      if (!ev.stats) return base;
-      return {
-        ...base,
-        tokens: {
-          input: base.tokens.input + ev.stats.tokens.input,
-          output: base.tokens.output + ev.stats.tokens.output,
-          total: base.tokens.total + ev.stats.tokens.total,
-        },
-        cost: base.cost + ev.stats.cost,
-      };
+      const base = patchAgent((a) => ({ ...a, ended: true, stats: ev.stats, durationMs: ev.durationMs, costReason: ev.costReason }));
+      if (!ev.stats && ev.durationMs === undefined) return base;
+      let next = base;
+      if (ev.durationMs !== undefined) {
+        next = { ...next, durationMs: next.durationMs + ev.durationMs };
+      }
+      if (ev.stats) {
+        next = {
+          ...next,
+          tokens: {
+            input: next.tokens.input + ev.stats.tokens.input,
+            output: next.tokens.output + ev.stats.tokens.output,
+            total: next.tokens.total + ev.stats.tokens.total,
+          },
+          cost: next.cost + ev.stats.cost,
+        };
+      }
+      return next;
     }
 
     case "test": {
@@ -254,23 +275,26 @@ function reduceUncapped(state: EngineUiState, action: Action): EngineUiState {
       return withItem({ id: nextId++, kind: "commit", ok: ev.ok, message: ev.message });
 
     case "crisis":
-      return { ...withItem({ id: nextId++, kind: "crisis", message: ev.message }), error: null };
+      return { ...withItem({ id: nextId++, kind: "crisis", message: ev.message, diff: ev.diff }), error: null };
+
+    case "retry":
+      return withItem({ id: nextId++, kind: "retry", role: ev.role, attempt: ev.attempt, maxAttempts: ev.maxAttempts, delayMs: ev.delayMs, reason: ev.reason });
 
     case "injected":
       return withItem({ id: nextId++, kind: "injected", text: ev.text });
 
     case "paused":
-      return { ...setStatus("waiting", "Pausado pelo usuário"), timeline: [...tl, { id: nextId++, kind: "status", message: "⏸ Pausado — aguardando retomada" }] };
+      return { ...setStatus("waiting", "Pausado pelo usuário"), timeline: [...tl, { id: nextId++, kind: "status", message: "⏸ Pausado — aguardando retomada", status: "waiting" }] };
 
     case "resumed":
-      return { ...setStatus("running"), timeline: [...tl, { id: nextId++, kind: "status", message: "▶ Retomado", sub: "Fluxo continuando…" }] };
+      return { ...setStatus("running"), timeline: [...tl, { id: nextId++, kind: "status", message: "▶ Retomado", sub: "Fluxo continuando…", status: "running" }] };
 
     case "log":
       if (ev.level === "debug") return state;
       return withItem({ id: nextId++, kind: "log", level: ev.level, message: ev.message });
 
     case "error":
-      return { ...setStatus("error"), error: ev.message, planning: false, timeline: [...tl, { id: nextId++, kind: "status", message: `❌ ${ev.message}` }] };
+      return { ...setStatus("error"), error: ev.message, errorFase: ev.fase, errorRole: ev.role, planning: false, timeline: [...tl, { id: nextId++, kind: "status", message: `❌ ${ev.message}`, status: "error" }] };
 
     case "done":
       return { ...setStatus("done"), completed: true, timeline: [...tl, { id: nextId++, kind: "status", message: ev.message }] };
@@ -294,16 +318,29 @@ export function reducer(state: EngineUiState, action: Action): EngineUiState {
   return next;
 }
 
+import { handleModelsListResult } from "./useModelList";
+
+/** Despacha eventos que não passam pelo reducer para seus respectivos handlers globais. */
+export function handleEventDispatch(ev: EngineEvent): void {
+  if (ev.type === "models-list-result") handleModelsListResult(ev);
+}
+
 export interface EngineActions {
-  start: (projectDir: string, mock: boolean, models?: AgentModels) => Promise<void>;
+  start: (projectDir: string, mock: boolean, models?: AgentModels, thinking?: AgentThinking) => Promise<void>;
   pause: () => Promise<void>;
   resume: () => Promise<void>;
   inject: (text: string) => Promise<void>;
   stop: () => Promise<void>;
+  /** E4 — aceita o TODO_BATCH.md reescrito pelo agente crise e retoma o loop. */
+  crisisAccept: () => Promise<void>;
+  /** E4 — restaura o snapshot do TODO_BATCH.md e encerra para auditoria humana. */
+  crisisRevert: () => Promise<void>;
   /** Pede ao engine para gerar o PLAN.md a partir do escopo escrito (composer do Planejador). */
-  generatePlan: (projectDir: string, prompt: string, mock?: boolean, models?: AgentModels) => Promise<void>;
+  generatePlan: (projectDir: string, prompt: string, mock?: boolean, models?: AgentModels, thinking?: AgentThinking) => Promise<void>;
   /** Dispara a geração do grafo de conhecimento (graphify) no projectDir. */
   generateGraph: (projectDir: string, mock: boolean) => Promise<void>;
+  /** E10 — garante que o processo engine existe (sem iniciar loop). Spawna se necessário. */
+  ensureEngine: (projectDir: string, mock: boolean) => Promise<void>;
 }
 
 export function useEngine(): { state: EngineUiState; actions: EngineActions; notTauri: boolean } {
@@ -342,6 +379,7 @@ export function useEngine(): { state: EngineUiState; actions: EngineActions; not
       const result = EngineEventSchema.safeParse(parsed);
       if (result.success) {
         dispatchRef.current({ type: "event", ev: result.data });
+        handleEventDispatch(result.data);
       }
     };
 
@@ -383,14 +421,14 @@ export function useEngine(): { state: EngineUiState; actions: EngineActions; not
 
   const actions: EngineActions = {
     start: useCallback(
-      async (projectDir, mock, models) => {
+      async (projectDir, mock, models, thinking) => {
         if (!isTauri()) return;
         try {
           // Mata qualquer engine anterior (pode ter sido spawnado com outro mock/projeto)
           // para garantir que o processo novo reflita as flags atuais.
           await engineStop().catch(() => undefined);
           await engineStart(projectDir, mock);
-          await send({ type: "start", projectDir, models });
+          await send({ type: "start", projectDir, models, thinking });
         } catch (err) {
           dispatchRef.current({ type: "event", ev: { type: "error", message: (err as Error).message } });
         }
@@ -404,14 +442,16 @@ export function useEngine(): { state: EngineUiState; actions: EngineActions; not
       await send({ type: "stop" });
       await engineStop().catch(() => undefined);
     }, [send]),
+    crisisAccept: useCallback(() => send({ type: "crisis-accept" }), [send]),
+    crisisRevert: useCallback(() => send({ type: "crisis-revert" }), [send]),
     generatePlan: useCallback(
-      async (projectDir, prompt, mock = false, models) => {
+      async (projectDir, prompt, mock = false, models, thinking) => {
         if (!isTauri()) return;
         try {
           // Mesmo cuidado do start: processo antigo pode estar com --mock de outra sessão.
           await engineStop().catch(() => undefined);
           await engineStart(projectDir, mock);
-          await send({ type: "plan", projectDir, prompt, models });
+          await send({ type: "plan", projectDir, prompt, models, thinking });
         } catch (err) {
           dispatchRef.current({ type: "event", ev: { type: "error", message: (err as Error).message } });
         }
@@ -431,6 +471,19 @@ export function useEngine(): { state: EngineUiState; actions: EngineActions; not
         }
       },
       [send],
+    ),
+    ensureEngine: useCallback(
+      async (projectDir, mock) => {
+        if (!isTauri()) return;
+        try {
+          // Mata qualquer engine anterior (pode ser de outro workspace ou mock).
+          await engineStop().catch(() => undefined);
+          await engineStart(projectDir, mock);
+        } catch (err) {
+          dispatchRef.current({ type: "event", ev: { type: "error", message: (err as Error).message } });
+        }
+      },
+      [],
     ),
   };
 

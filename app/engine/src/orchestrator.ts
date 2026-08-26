@@ -1,10 +1,12 @@
 import { execFile } from "node:child_process";
 import { z } from "zod";
-import { agentRun, structured } from "./pi.js";
-import type { AgentModels, AgentRole, EngineEvent } from "./protocol.js";
+import { agentRun, structured, toThinkingLevel } from "./pi.js";
+import type { AgentModels, AgentRole, AgentThinking, EngineEvent } from "./protocol.js";
 import { buildSkillPrompt } from "./skills.js";
-import { Repo, markPhaseDone, nextPendingPhase, planProgress } from "./repo.js";
+import { Repo, markPhaseDone, nextPendingPhase, planProgress, unifiedDiff } from "./repo.js";
+import { classifyProject, extractDeliverableFiles, hasUnfinishedTasks } from "./project.js";
 import { generateGraphFor } from "./graph.js";
+import { fetchModelsList } from "./models.js";
 
 /**
  * Orquestrador — a máquina de estados do fluxo "fábrica de software autônoma",
@@ -38,17 +40,19 @@ const QaSchema = z.object({
   justificativa: z.string().describe("Explicação curta da decisão de QA."),
 });
 
-/** Portão de controle humano (pause/inject/stop). */
+/** Portão de controle humano (pause/inject/stop/crisis). */
 export interface Gate {
   paused: boolean;
   pendingInjections: string[];
   stopRequested: boolean;
   resumeWaiters: Array<() => void>;
   stopHandlers: Array<() => void>;
+  /** E4 — waiters do protocolo de crise (resolvem com "accept" ou "revert"). */
+  crisisWaiters: Array<(action: "accept" | "revert") => void>;
 }
 
 export function createGate(): Gate {
-  return { paused: false, pendingInjections: [], stopRequested: false, resumeWaiters: [], stopHandlers: [] };
+  return { paused: false, pendingInjections: [], stopRequested: false, resumeWaiters: [], stopHandlers: [], crisisWaiters: [] };
 }
 
 export class StopSignal extends Error {
@@ -77,6 +81,18 @@ export function triggerStop(gate: Gate): void {
   const waiters = gate.resumeWaiters.splice(0);
   waiters.forEach((w) => w());
   gate.stopHandlers.slice().forEach((h) => h());
+}
+
+/** E4 — aceita o TODO_BATCH.md reescrito pelo agente crise e retoma o loop. */
+export function triggerCrisisAccept(gate: Gate): void {
+  const waiters = gate.crisisWaiters.splice(0);
+  waiters.forEach((w) => w("accept"));
+}
+
+/** E4 — restaura o snapshot do TODO_BATCH.md e encerra para auditoria humana. */
+export function triggerCrisisRevert(gate: Gate): void {
+  const waiters = gate.crisisWaiters.splice(0);
+  waiters.forEach((w) => w("revert"));
 }
 
 /**
@@ -115,6 +131,8 @@ export interface OrchestratorOptions {
   mock?: boolean;
   /** Override de modelo por papel (vindo da UI). Ausente = default do engine. */
   models?: AgentModels;
+  /** Override de thinking por papel (vindo da UI — E10). */
+  thinking?: AgentThinking;
 }
 
 function truncate(s: string, n = 6000): string {
@@ -136,14 +154,27 @@ export async function runOrchestrator(opts: OrchestratorOptions): Promise<void> 
     return opts.models?.[role] ?? DEFAULT_MODEL;
   };
 
+  /** Resolve o thinking do papel (sanitizado para um nível válido do SDK). */
+  const thinkingFor = (role: AgentRole) => toThinkingLevel(opts.thinking?.[role]);
+
   try {
     let crise = false;
-    emit({ type: "status", status: "starting", detail: "Lendo PLAN.md…" });
-    await generateGraphFor(emit, projectDir);
+    emit({ type: "status", status: "starting", detail: "Lendo PLAN.md…", stage: "reading-plan" });
+
+    // E10 — garante que o cache de preços do llmgateway está populado antes de
+    // qualquer agente rodar (evita a corrida entre `models-list` e `start`/`plan`).
+    await fetchModelsList();
+
+    // Classificação determinística do formato do projeto: projetos estáticos
+    // (sem package.json e sem arquivos de teste) seguem um caminho rápido — sem
+    // grafo, sem testador LLM e sem QA judge (verificação direta de entregáveis).
+    const profile = await classifyProject(projectDir);
+    const isStatic = profile.kind === "static";
+    if (!isStatic) await generateGraphFor(emit, projectDir);
 
     const agentsMd = await repo.read("AGENTS.md");
     const runStructured = <T>(role: AgentRole, prompt: string, schema: z.ZodType<T>) =>
-      structured<T>({ role, projectDir, prompt, schema, model: modelFor(role), onEvent: emit, signal });
+      structured<T>({ role, projectDir, prompt, schema, model: modelFor(role), thinkingLevel: thinkingFor(role), onEvent: emit, signal });
 
     while (true) {
       const plan = await repo.read("PLAN.md");
@@ -192,22 +223,30 @@ export async function runOrchestrator(opts: OrchestratorOptions): Promise<void> 
 
       // 1) TECHLEAD — fatiar a fase em TODO_BATCH.md
       await checkpoint(gate, emit, "techlead");
+      emit({ type: "status", status: "running", stage: "techlead", detail: `Techlead fatiando ${faseAtiva}…` });
       const techPrompt = await buildSkillPrompt({
         name: "techlead",
         projectDir,
         agentsMd,
-        instruction: `Leia a ${faseAtiva} do PLAN.md e gere o TODO_BATCH.md correspondente a ela, seguindo o formato obrigatório das skills: tarefas atômicas com checkboxes (- [ ]), RED/GREEN Phase quando houver testes, e a tag de engine recomendada no topo.`,
+        projectKind: profile.kind,
+        instruction: isStatic
+          ? `Leia a ${faseAtiva} do PLAN.md e gere o TODO_BATCH.md correspondente, no formato obrigatório das skills. PROJETO ESTÁTICO (sem package.json/infraestrutura de teste): gere tarefas enxutas de entrega direta dos arquivos pedidos (ex.: index.html, style.css). NÃO crie tarefas de teste, NÃO peça para rodar comandos de teste (npm/pnpm test) e limite a inspeção ao mínimo necessário (apenas confirme os arquivos existentes e a estrutura).`
+          : `Leia a ${faseAtiva} do PLAN.md e gere o TODO_BATCH.md correspondente a ela, seguindo o formato obrigatório das skills: tarefas atômicas com checkboxes (- [ ]), RED/GREEN Phase quando houver testes, e a tag de engine recomendada no topo.`,
       });
-      await agentRun({ role: "techlead", projectDir, prompt: techPrompt, model: modelFor("techlead"), onEvent: emit, signal });
+      await agentRun({ role: "techlead", projectDir, prompt: techPrompt, model: modelFor("techlead"), thinkingLevel: thinkingFor("techlead"), onEvent: emit, signal });
 
       // 2) CODER — loop de execução + testes
       let sucesso = false;
       let tentativa = 1;
       while (tentativa <= MAX_TENTATIVAS_ERRO && !sucesso) {
         const injection = await checkpoint(gate, emit, `coder tentativa ${tentativa}`);
+        emit({ type: "status", status: "running", stage: "coder", detail: `Coder executando ${faseAtiva} (tentativa ${tentativa}/${MAX_TENTATIVAS_ERRO})…` });
 
-        const instrucao =
-          tentativa === 1
+        const instrucao = isStatic
+          ? tentativa === 1
+            ? "Cumpra rigorosamente as tarefas do TODO_BATCH.md. PROJETO ESTÁTICO: implemente APENAS os arquivos entregáveis pedidos no batch. É PROIBIDO criar arquivos de teste (.test/.spec), rodar comandos de teste (npm/pnpm test) ou montar qualquer infraestrutura de teste."
+            : "A verificação de entregáveis falhou. Leia o que faltou (error.log) e corrija a implementação — sem criar arquivos de teste."
+          : tentativa === 1
             ? "Cumpra rigorosamente as tarefas do TODO_BATCH.md."
             : "O último teste falhou. Leia o error.log e corrija a implementação.";
         const comInjecao = [`[Tentativa ${tentativa}/${MAX_TENTATIVAS_ERRO}] ${instrucao}`]
@@ -218,13 +257,18 @@ export async function runOrchestrator(opts: OrchestratorOptions): Promise<void> 
           name: "coder",
           projectDir,
           agentsMd,
+          projectKind: profile.kind,
           instruction: comInjecao,
         });
-        await agentRun({ role: "coder", projectDir, prompt: coderPrompt, model: modelFor("coder"), onEvent: emit, signal });
+        await agentRun({ role: "coder", projectDir, prompt: coderPrompt, model: modelFor("coder"), thinkingLevel: thinkingFor("coder"), onEvent: emit, signal });
 
-        // 3) VERIFICAÇÃO — agente testador (skill `testador`): roda a suíte real
-        //    quando existe ou inspeciona os entregáveis em projetos simples.
-        const result = await runTestador({ projectDir, emit, gate, signal, agentsMd, models: opts.models });
+        // 3) VERIFICAÇÃO — para projetos estáticos, verificação determinística de
+        //    entregáveis (sem LLM); para projetos gerenciados, o agente testador
+        //    (skill `testador`) roda a suíte real quando existe ou inspeciona os
+        //    entregáveis em projetos simples.
+        const result = isStatic
+          ? await runStaticVerifier({ projectDir, emit, gate })
+          : await runTestador({ projectDir, emit, gate, signal, agentsMd, models: opts.models, thinking: opts.thinking });
         if (result.ok) {
           sucesso = true;
           break;
@@ -234,7 +278,16 @@ export async function runOrchestrator(opts: OrchestratorOptions): Promise<void> 
         emit({ type: "test", state: "fail" });
         emit({ type: "log", level: "warn", message: "❌ Verificação falhou. Log salvo em error.log." });
 
-        // 4) QA JUDGE — veredito TDD estruturado (Zod)
+        // 4) Projetos estáticos não têm suíte de testes: não há veredito TDD a
+        //    classificar — retry direto do Coder (até MAX_TENTATIVAS_ERRO).
+        if (isStatic) {
+          emit({ type: "log", level: "warn", message: `⚠️ Projeto estático: sem testes para o QA julgar. O Coder tentará corrigir (tentativa ${tentativa}/${MAX_TENTATIVAS_ERRO}).` });
+          tentativa++;
+          continue;
+        }
+
+        // 5) QA JUDGE — veredito TDD estruturado (Zod)
+        emit({ type: "status", status: "running", stage: "qa", detail: "QA analisando veredito TDD…" });
         const qaPrompt =
           `Análise de TDD do fluxo.\n` +
           `- ESPERADO: falha natural de funcionalidade ainda não implementada pelo Coder.\n` +
@@ -268,6 +321,7 @@ export async function runOrchestrator(opts: OrchestratorOptions): Promise<void> 
         emit({ type: "phase-done", fase: faseAtiva });
         emit({ type: "log", level: "info", message: `✅ ${faseAtiva} concluída com sucesso.` });
 
+        emit({ type: "status", status: "running", stage: "commit", detail: `Commit de ${faseAtiva}…` });
         const commitMsg = `feat: conclui ${faseAtiva} (via pi-factory)`;
         try {
           await execFileAsync("git", ["add", "."], projectDir);
@@ -276,22 +330,51 @@ export async function runOrchestrator(opts: OrchestratorOptions): Promise<void> 
         } catch {
           emit({ type: "commit", ok: false, message: "Commit ignorado (sem alterações ou git não iniciado)." });
         }
-        await generateGraphFor(emit, projectDir);
+        if (!isStatic) await generateGraphFor(emit, projectDir);
       } else {
+        // ── E4: Protocolo de crise com auditoria na UI ──
         emit({ type: "log", level: "error", message: `🚨 Protocolo de crise: o Coder falhou ${MAX_TENTATIVAS_ERRO}x na ${faseAtiva}.` });
+        emit({ type: "status", status: "running", stage: "crisis", detail: "Protocolo de crise acionado…" });
         await checkpoint(gate, emit, "crise");
+
+        // Snapshot do TODO_BATCH.md ANTES do agente crise reescrever.
+        const snapshot = await repo.snapshot("TODO_BATCH.md");
+
         const crisePrompt = await buildSkillPrompt({
           name: "techlead",
           projectDir,
           agentsMd,
           instruction: `O Coder falhou ${MAX_TENTATIVAS_ERRO} vezes consecutivas na ${faseAtiva}. Leia o error.log e reavalie o TODO_BATCH.md, simplificando o escopo ou corrigindo o teste quebrado.`,
         });
-        await agentRun({ role: "crise", projectDir, prompt: crisePrompt, model: modelFor("crise"), thinkingLevel: "medium", onEvent: emit, signal });
+        await agentRun({ role: "crise", projectDir, prompt: crisePrompt, model: modelFor("crise"), thinkingLevel: thinkingFor("crise") ?? "medium", onEvent: emit, signal });
 
-        emit({ type: "crisis", message: "Novo plano gerado pelo modelo sênior. Execução pausada para auditoria humana." });
-        emit({ type: "status", status: "done", detail: "Protocolo de crise — auditoria humana necessária." });
-        crise = true;
-        break;
+        // Gera diff entre o snapshot e o novo TODO_BATCH.md.
+        const novoBatch = (await repo.read("TODO_BATCH.md")) ?? "";
+        const diff = unifiedDiff(snapshot ?? "", novoBatch, 3000);
+
+        emit({ type: "crisis", message: "Novo plano gerado pelo modelo sênior. Revise as alterações abaixo.", diff });
+        emit({ type: "status", status: "waiting", stage: "crisis", detail: "Protocolo de crise — aguardando decisão humana." });
+
+        // Aguarda accept (retoma) ou revert (restaura e encerra).
+        const action = await new Promise<"accept" | "revert">((resolve) => {
+          gate.crisisWaiters.push(resolve);
+        });
+
+        if (action === "revert") {
+          // Restaura o snapshot e encerra para auditoria humana.
+          if (snapshot !== null) {
+            await repo.restore("TODO_BATCH.md", snapshot);
+          }
+          emit({ type: "log", level: "info", message: "↩️ TODO_BATCH.md restaurado para o estado anterior à crise. Encerrando para auditoria." });
+          emit({ type: "status", status: "done", detail: "Protocolo de crise revertido — auditoria humana necessária." });
+          crise = true;
+          break;
+        }
+
+        // Accept: retoma o loop com o batch reescrito.
+        emit({ type: "log", level: "info", message: "✅ Crise aceita. Retomando o loop com o novo TODO_BATCH.md…" });
+        emit({ type: "status", status: "running" });
+        // Continua o while — a próxima iteração lê o novo TODO_BATCH.md.
       }
     }
 
@@ -330,8 +413,9 @@ async function runTestador(opts: {
   signal: AbortSignal;
   agentsMd: string | null;
   models?: AgentModels;
+  thinking?: AgentThinking;
 }): Promise<{ ok: boolean; output: string }> {
-  const { projectDir, emit, gate, signal, agentsMd, models } = opts;
+  const { projectDir, emit, gate, signal, agentsMd, models, thinking } = opts;
 
   emit({ type: "log", level: "info", message: "🔎 Agente testador verificando a fase (testes reais ou entregáveis do TODO_BATCH.md)…" });
   emit({ type: "test", state: "start" });
@@ -346,7 +430,7 @@ async function runTestador(opts: {
       `ou inspecionar os entregáveis em casos simples) e escreva o resultado em test-result.json ` +
       `no formato {"ok": true|false, "output": "resumo objetivo"}.`,
   });
-  await agentRun({ role: "testador", projectDir, prompt: skillPrompt, model: models?.testador ?? DEFAULT_MODEL, onEvent: emit, signal });
+  await agentRun({ role: "testador", projectDir, prompt: skillPrompt, model: models?.testador ?? DEFAULT_MODEL, thinkingLevel: toThinkingLevel(thinking?.testador), onEvent: emit, signal });
 
   let result: { ok: boolean; output: string };
   const raw = await new Repo(projectDir).read("test-result.json");
@@ -362,6 +446,46 @@ async function runTestador(opts: {
       result = { ok: false, output: "test-result.json não é um JSON válido." };
     }
   }
+  emit({ type: "test", state: result.ok ? "ok" : "fail" });
+  return result;
+}
+
+/**
+ * Verificação determinística para projetos estáticos (sem package.json e sem
+ * arquivos de teste). NÃO roda LLM — confere direto os entregáveis do
+ * TODO_BATCH.md: o batch deve existir, estar 100% concluído (sem `- [ ]`/`[!]`)
+ * e os arquivos entregáveis citados devem existir em disco.
+ */
+async function runStaticVerifier(opts: {
+  projectDir: string;
+  emit: (e: EngineEvent) => void;
+  gate: Gate;
+}): Promise<{ ok: boolean; output: string }> {
+  const { projectDir, emit, gate } = opts;
+
+  emit({ type: "log", level: "info", message: "🔎 Verificação direta de entregáveis (projeto estático, sem testes)…" });
+  emit({ type: "test", state: "start" });
+  await checkpoint(gate, emit, "testador");
+
+  const repo = new Repo(projectDir);
+  const todoBatch = await repo.read("TODO_BATCH.md");
+
+  let result: { ok: boolean; output: string };
+  if (!todoBatch) {
+    result = { ok: false, output: "TODO_BATCH.md não existe." };
+  } else if (hasUnfinishedTasks(todoBatch)) {
+    result = { ok: false, output: "Há tarefas pendentes/bloqueadas no TODO_BATCH.md (o Coder não concluiu o lote)." };
+  } else {
+    const files = extractDeliverableFiles(todoBatch);
+    const missing: string[] = [];
+    for (const f of files) {
+      if (!(await repo.exists(f))) missing.push(f);
+    }
+    result = missing.length > 0
+      ? { ok: false, output: `Entregáveis ausentes: ${missing.join(", ")}` }
+      : { ok: true, output: files.length > 0 ? `Entregáveis verificados: ${files.join(", ")}.` : "Tarefas do TODO_BATCH.md concluídas." };
+  }
+
   emit({ type: "test", state: result.ok ? "ok" : "fail" });
   return result;
 }
@@ -387,9 +511,14 @@ export async function generatePlan(opts: {
   mock: boolean;
   /** Modelo do Planejador (vindo da UI). Ausente = default do engine. */
   model?: string;
+  /** Nível de thinking do Planejador (vindo da UI). */
+  thinking?: string;
 }): Promise<void> {
-  const { projectDir, prompt, emit, mock, model } = opts;
-  emit({ type: "status", status: "starting", detail: "Planejador gerando o PLAN.md…" });
+  const { projectDir, prompt, emit, mock, model, thinking } = opts;
+  emit({ type: "status", status: "starting", stage: "plan", detail: "Planejador gerando o PLAN.md…" });
+
+  // E10 — garante o cache de preços antes do planejador rodar (evita corrida).
+  await fetchModelsList();
 
   if (mock) {
     const titulo = prompt.trim().split(/\s+/).slice(0, 6).join(" ") || "Projeto";
@@ -412,7 +541,7 @@ export async function generatePlan(opts: {
     instruction: `Crie o arquivo PLAN.md a partir do pedido abaixo, no formato obrigatório da skill (fases ## com marcador [ ] no título e tags de complexidade).\n\nPEDIDO:\n${prompt}`,
   });
   const abort = new AbortController();
-  await agentRun({ role: "planejador", projectDir, prompt: skillPrompt, model, onEvent: emit, signal: abort.signal });
+  await agentRun({ role: "planejador", projectDir, prompt: skillPrompt, model, thinkingLevel: toThinkingLevel(thinking), onEvent: emit, signal: abort.signal });
   emit({ type: "plan-done", projectDir });
   emit({ type: "status", status: "idle" });
 }

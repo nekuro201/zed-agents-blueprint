@@ -38,6 +38,16 @@ export class Repo {
   async write(rel: string, content: string): Promise<void> {
     await fs.writeFile(this.resolve(rel), content, "utf-8");
   }
+
+  /** E4 — snapshot do conteúdo de um arquivo para restauração futura (crise). */
+  async snapshot(rel: string): Promise<string | null> {
+    return this.read(rel);
+  }
+
+  /** E4 — restaura o conteúdo de um arquivo a partir de um snapshot anterior. */
+  async restore(rel: string, content: string): Promise<void> {
+    await this.write(rel, content);
+  }
 }
 
 export interface PhaseInfo {
@@ -178,4 +188,60 @@ export async function computeGraphStaleness(projectDir: string): Promise<GraphSt
 
   await walk(projectDir);
   return { stale: changedCount > 0, changedCount };
+}
+
+/**
+ * E4 — Diff unificado simples (sem dependência externa).
+ * Compara linha a linha e gera um unified diff com cabeçalho.
+ * @param maxLen se fornecido, trunca o diff nesse comprimento máximo.
+ */
+export function unifiedDiff(before: string, after: string, maxLen?: number): string {
+  const beforeLines = before.split("\n");
+  const afterLines = after.split("\n");
+
+  // Algoritmo LCS simples (longest common subsequence) para alinhar linhas.
+  const m = beforeLines.length;
+  const n = afterLines.length;
+
+  // Tabela dp para LCS
+  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (beforeLines[i - 1] === afterLines[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1] + 1;
+      } else {
+        dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+      }
+    }
+  }
+
+  // Backtrack para gerar o diff
+  const chunks: string[] = [];
+  let i = m;
+  let j = n;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && beforeLines[i - 1] === afterLines[j - 1]) {
+      chunks.unshift(" " + beforeLines[i - 1]);
+      i--;
+      j--;
+    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+      chunks.unshift("+" + afterLines[j - 1]);
+      j--;
+    } else {
+      chunks.unshift("-" + beforeLines[i - 1]);
+      i--;
+    }
+  }
+
+  // Se nada mudou, retorna vazio
+  const hasChanges = chunks.some((c) => c.startsWith("-") || c.startsWith("+"));
+  if (!hasChanges) return "";
+
+  let diff = "--- a/TODO_BATCH.md\n+++ b/TODO_BATCH.md\n" + chunks.join("\n");
+
+  if (maxLen !== undefined && diff.length > maxLen) {
+    diff = diff.slice(0, maxLen) + "\n…(truncado)";
+  }
+
+  return diff;
 }
