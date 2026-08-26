@@ -2,6 +2,7 @@ import { emit as emitEvent } from "./protocol.js";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 
 /**
  * Fetch + cache da lista de modelos da API pública do llmgateway (E10 — Fase 1).
@@ -164,6 +165,44 @@ export function getModelPricing(modelRef: string): LlmGatewayModel["pricing"] {
 
 const PI_AGENT_MODELS_JSON = path.join(os.homedir(), ".pi", "agent", "models.json");
 
+// Lock de arquivo para evitar "lost update" quando múltiplos workspaces/loops
+// registram modelos concorrentemente (E5: multi-thread). O arquivo de destino é
+// lido-e-reescrito (read-modify-write); sem lock, duas escritas simultâneas
+// poderiam sobrescrever uma à outra e perder uma das atualizações.
+const LOCK_RETRY_MS = 40;
+const LOCK_TIMEOUT_MS = 5_000;
+const LOCK_STALE_MS = 10_000;
+
+async function acquireFileLock(lockPath: string): Promise<() => Promise<void>> {
+  const deadline = Date.now() + LOCK_TIMEOUT_MS;
+  for (;;) {
+    try {
+      const handle = await fs.open(lockPath, "wx");
+      await handle.close();
+      break;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
+      // Lock existe: pode ser concorrente legítimo ou órfão (crash). Remove órfãos.
+      try {
+        const stat = await fs.stat(lockPath);
+        if (Date.now() - stat.mtimeMs > LOCK_STALE_MS) {
+          await fs.rm(lockPath, { force: true });
+          continue;
+        }
+      } catch {
+        continue; // lock sumiu — tenta de novo imediatamente
+      }
+      if (Date.now() > deadline) {
+        throw new Error(`Timeout ao adquirir lock em ${lockPath}`);
+      }
+      await sleep(LOCK_RETRY_MS);
+    }
+  }
+  return async () => {
+    await fs.rm(lockPath, { force: true });
+  };
+}
+
 interface PiModelsJson {
   providers?: Record<string, { models?: PiModelEntry[]; [k: string]: unknown }>;
   [k: string]: unknown;
@@ -191,48 +230,60 @@ export async function registerModelInPiAgent(
   },
   filePath: string = PI_AGENT_MODELS_JSON,
 ): Promise<{ ok: boolean; message: string }> {
-  const parts = input.modelId.includes("/") ? input.modelId.split("/") : [LLMGATEWAY_PROVIDER, input.modelId];
-  const provider = parts[0];
-  const modelId = parts.slice(1).join("/") || input.modelId;
-
-  let data: PiModelsJson;
+  const lockPath = `${filePath}.lock`;
+  let release: () => Promise<void>;
   try {
-    data = JSON.parse(await fs.readFile(filePath, "utf-8")) as PiModelsJson;
+    release = await acquireFileLock(lockPath);
   } catch (err) {
-    return { ok: false, message: `Não foi possível ler ${filePath}: ${(err as Error).message}` };
-  }
-
-  data.providers ??= {};
-  const prov = (data.providers[provider] ??= {});
-  prov.models ??= [];
-  const models = prov.models as PiModelEntry[];
-
-  const existing = models.find((m) => m.id === modelId);
-  const cost = input.pricing
-    ? { input: input.pricing.prompt, output: input.pricing.completion, cacheRead: 0, cacheWrite: 0 }
-    : undefined;
-
-  if (existing) {
-    existing.name = input.name;
-    if (cost) existing.cost = cost;
-    if (!existing.reasoning) existing.reasoning = true;
-  } else {
-    const entry: PiModelEntry = { id: modelId, name: input.name, reasoning: true };
-    if (cost) entry.cost = cost;
-    models.push(entry);
+    return { ok: false, message: `Não foi possível adquirir lock em ${filePath}: ${(err as Error).message}` };
   }
 
   try {
-    await fs.copyFile(filePath, `${filePath}.bak`);
-  } catch {
-    /* backup é best-effort */
-  }
+    const parts = input.modelId.includes("/") ? input.modelId.split("/") : [LLMGATEWAY_PROVIDER, input.modelId];
+    const provider = parts[0];
+    const modelId = parts.slice(1).join("/") || input.modelId;
 
-  try {
-    await fs.writeFile(filePath, JSON.stringify(data, null, 2) + "\n", "utf-8");
-  } catch (err) {
-    return { ok: false, message: `Falha ao escrever ${filePath}: ${(err as Error).message}` };
-  }
+    let data: PiModelsJson;
+    try {
+      data = JSON.parse(await fs.readFile(filePath, "utf-8")) as PiModelsJson;
+    } catch (err) {
+      return { ok: false, message: `Não foi possível ler ${filePath}: ${(err as Error).message}` };
+    }
 
-  return { ok: true, message: `Modelo "${input.modelId}" registrado em ~/.pi/agent/models.json (provider ${provider}).` };
+    data.providers ??= {};
+    const prov = (data.providers[provider] ??= {});
+    prov.models ??= [];
+    const models = prov.models as PiModelEntry[];
+
+    const existing = models.find((m) => m.id === modelId);
+    const cost = input.pricing
+      ? { input: input.pricing.prompt, output: input.pricing.completion, cacheRead: 0, cacheWrite: 0 }
+      : undefined;
+
+    if (existing) {
+      existing.name = input.name;
+      if (cost) existing.cost = cost;
+      if (!existing.reasoning) existing.reasoning = true;
+    } else {
+      const entry: PiModelEntry = { id: modelId, name: input.name, reasoning: true };
+      if (cost) entry.cost = cost;
+      models.push(entry);
+    }
+
+    try {
+      await fs.copyFile(filePath, `${filePath}.bak`);
+    } catch {
+      /* backup é best-effort */
+    }
+
+    try {
+      await fs.writeFile(filePath, JSON.stringify(data, null, 2) + "\n", "utf-8");
+    } catch (err) {
+      return { ok: false, message: `Falha ao escrever ${filePath}: ${(err as Error).message}` };
+    }
+
+    return { ok: true, message: `Modelo "${input.modelId}" registrado em ~/.pi/agent/models.json (provider ${provider}).` };
+  } finally {
+    await release();
+  }
 }

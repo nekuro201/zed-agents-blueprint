@@ -243,6 +243,46 @@ describe("registerModelInPiAgent (registro no models.json)", () => {
     }
   });
 
+  it("não deixa arquivo de lock para trás após registrar", async () => {
+    const file = await makeModelsJson();
+    try {
+      await registerModelInPiAgent({ modelId: "llmgateway/deepseek-v4-pro", name: "DeepSeek V4 Pro", pricing: { prompt: 0.3, completion: 0.6 } }, file);
+      await expect(fs.access(`${file}.lock`)).rejects.toThrow();
+    } finally {
+      await fs.rm(path.dirname(file), { recursive: true, force: true });
+    }
+  });
+
+  it("serializa registros concorrentes sem perder atualizações (lost update)", async () => {
+    const file = await makeModelsJson();
+    try {
+      await Promise.all([
+        registerModelInPiAgent({ modelId: "llmgateway/a", name: "A", pricing: { prompt: 0.1, completion: 0.2 } }, file),
+        registerModelInPiAgent({ modelId: "llmgateway/b", name: "B", pricing: { prompt: 0.3, completion: 0.4 } }, file),
+      ]);
+      const data = JSON.parse(await fs.readFile(file, "utf-8"));
+      const ids = data.providers.llmgateway.models.map((m: { id: string }) => m.id);
+      expect(ids).toContain("a");
+      expect(ids).toContain("b");
+    } finally {
+      await fs.rm(path.dirname(file), { recursive: true, force: true });
+    }
+  });
+
+  it("remove lock órfão (stale) e prossegue", async () => {
+    const file = await makeModelsJson();
+    try {
+      await fs.writeFile(`${file}.lock`, "stale");
+      const past = new Date(Date.now() - 60_000);
+      await fs.utimes(`${file}.lock`, past, past);
+      const r = await registerModelInPiAgent({ modelId: "llmgateway/c", name: "C", pricing: { prompt: 0.5, completion: 0.6 } }, file);
+      expect(r.ok).toBe(true);
+      await expect(fs.access(`${file}.lock`)).rejects.toThrow();
+    } finally {
+      await fs.rm(path.dirname(file), { recursive: true, force: true });
+    }
+  });
+
   it("retorna erro quando o arquivo não existe", async () => {
     const r = await registerModelInPiAgent({ modelId: "x/y", name: "Y", pricing: null }, "/tmp/nao-existe-models.json");
     expect(r.ok).toBe(false);

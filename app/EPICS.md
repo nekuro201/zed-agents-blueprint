@@ -96,20 +96,20 @@ lista modelos disponíveis com preços reais e os aplica nos campos manuais de c
 Calcular custo em memória no engine (sem mexer no `models.json` do CLI `pi`).
 Sync de modelos/preço no boot do app. (Plano: `PLAN-selector.md`.)
 
-### [ ] E10.1 Comando `models-list` no engine
-- [ ] Protocolo `models-list` / `models-list-result` (Zod espelhado).
-- [ ] Fetch da API pública do llmgateway (`GET /v1/models`) com cache em memória.
-- [ ] Degradação graciosa (timeout/rede/parse → `ok: false`).
+### [x] E10.1 Comando `models-list` no engine
+- [x] Protocolo `models-list` / `models-list-result` (Zod espelhado).
+- [x] Fetch da API pública do llmgateway (`GET /v1/models`) com cache em memória.
+- [x] Degradação graciosa (timeout/rede/parse → `ok: false`).
 
-### [ ] E10.2 Seletor com busca na UI
-- [ ] Hook `useModelList` + componente `ModelSearchSelect` (campo de texto com drop-down pesquisável).
-- [ ] Integrar no modal de modelos (cada linha ganha o seletor junto do campo de texto livre).
-- [ ] Sync da lista de modelos no boot do app.
+### [x] E10.2 Seletor com busca na UI
+- [x] Hook `useModelList` + componente `ModelSearchSelect` (campo de texto com drop-down pesquisável).
+- [x] Integrar no modal de modelos (cada linha ganha o seletor junto do campo de texto livre).
+- [x] Sync da lista de modelos no boot do app.
 
-### [ ] E10.3 Cálculo de custo em memória no engine
-- [ ] Helper `calculateCostFromPricing` ($/milhão de tokens a partir do pricing da API).
-- [ ] Cache de pricing por modelo no engine.
-- [ ] Emitir custo real no `agent-end` (sobrescrever `getSessionStats().cost` quando pricing disponível).
+### [x] E10.3 Cálculo de custo em memória no engine
+- [x] Helper `calculateCostFromPricing` ($/milhão de tokens a partir do pricing da API).
+- [x] Cache de pricing por modelo no engine.
+- [x] Emitir custo real no `agent-end` (sobrescrever `getSessionStats().cost` quando pricing disponível).
 
 ---
 
