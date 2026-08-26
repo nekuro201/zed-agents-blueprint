@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Brain, CornerDownRight, FileCheck2, FolderOpen, MessageSquare, TriangleAlert } from "lucide-react";
+import { useEffect, useMemo } from "react";
+import { Brain, CornerDownRight, FileCheck2, FolderOpen, History, MessageSquare, TriangleAlert } from "lucide-react";
 import { ProjectBar } from "../ProjectBar";
 import { ChatThreadPrompt } from "./ChatThreadPrompt";
 import { ThreadInspector } from "./ThreadInspector";
@@ -7,19 +7,7 @@ import { cn } from "../../lib/cn";
 import { useStickToBottom } from "../../hooks/useStickToBottom";
 import { parseDoc, planProgress, type DocRow } from "../../lib/docs";
 import type { ProjectDocs } from "../../hooks/useProjectDocs";
-
-type ThreadMsg =
-  | { id: number; role: "user"; text: string }
-  | {
-      id: number;
-      role: "planner";
-      thinking: string;
-      text: string;
-      model?: string;
-      fallback?: boolean;
-      costReason?: "pricing" | "sdk" | "no-pricing" | "not-found" | "not-loaded";
-      stats?: { tokens: { total: number }; cost: number };
-    };
+import type { ChatMessage } from "../../lib/conversations";
 
 /** Card do Planejador (vem do reducer/timeline) — streaming ou já concluído. */
 export interface PlannerCard {
@@ -27,7 +15,7 @@ export interface PlannerCard {
   text: string;
   model?: string;
   fallback?: boolean;
-  costReason?: "pricing" | "sdk" | "no-pricing" | "not-found" | "not-loaded";
+  costReason?: string;
   ended: boolean;
   stats?: { tokens: { total: number }; cost: number };
 }
@@ -49,14 +37,13 @@ function shortModel(model?: string): string {
 /**
  * Card do Planejador na conversa (estilo v5). Thinking é colapsável: aberto em
  * streaming, minimizado (details fechado) após terminar — igual ao Loop.
- * Quando congelado, mostra o preview do PLAN.md (`.plan-card` do v5).
  */
 function PlannerCardView({
   card,
   live,
   planRows = [],
 }: {
-  card: Omit<PlannerCard, "ended">;
+  card: { thinking: string; text: string; model?: string; fallback?: boolean; costReason?: string; stats?: { tokens: { total: number }; cost: number } };
   live: boolean;
   planRows?: DocRow[];
 }) {
@@ -154,9 +141,8 @@ function PlannerCardView({
 }
 
 /**
- * View "Chat da Thread" — gate de projeto (F1) + bubbles de sessão (F2).
- * O card do Planejador (`plannerCard`) fica persistente na conversa após terminar,
- * com o thinking minimizado e a mensagem final visível. Histórico persistido na Fase C.
+ * View "Chat da Thread" (controlada) — recebe as mensagens da conversa ativa do
+ * App (hook `useConversations`), então trocar de view NÃO perde a conversa.
  */
 export function ChatThreadView({
   projectDir,
@@ -164,10 +150,13 @@ export function ChatThreadView({
   planning = false,
   docs = {},
   plannerCard = null,
+  messages = [],
+  activeLabel = "",
   onProjectDirChange,
   onMockChange,
   onBrowse,
-  onGenerate,
+  onSend,
+  onOpenHistory,
 }: {
   projectDir: string;
   mock: boolean;
@@ -175,50 +164,22 @@ export function ChatThreadView({
   docs?: ProjectDocs;
   /** Card do Planejador (último da timeline) — live ou concluído. */
   plannerCard?: PlannerCard | null;
+  /** Mensagens da conversa ativa (persistidas no App). */
+  messages?: ChatMessage[];
+  activeLabel?: string;
   onProjectDirChange: (dir: string) => void;
   onMockChange: (value: boolean) => void;
   onBrowse: () => Promise<void> | void;
-  onGenerate: (prompt: string) => void;
+  onSend: (prompt: string) => void;
+  onOpenHistory: () => void;
 }) {
   const hasProject = projectDir.trim().length > 0;
-  const [messages, setMessages] = useState<ThreadMsg[]>([]);
-  const nextId = useRef(1);
-  const prevCardEnded = useRef<boolean | null>(null);
   const { ref, stickToBottom } = useStickToBottom<HTMLDivElement>();
 
-  // Acompanha o conteúdo novo (nova mensagem ou thinking streaming do Planejador)
-  // apenas quando o usuário está perto do fim.
+  // Acompanha o conteúdo novo (nova mensagem ou thinking streaming do Planejador).
   useEffect(() => {
     stickToBottom();
   }, [messages, plannerCard?.thinking, plannerCard?.text, stickToBottom]);
-
-  // Quando o card do Planejador termina (agent-end → ended), congela o card na
-  // conversa: fica visível depois, com thinking minimizado e a mensagem final.
-  // (No modo simulado não há card — o PLAN aparece no inspector à direita.)
-  useEffect(() => {
-    const ended = plannerCard?.ended ?? null;
-    if (prevCardEnded.current === false && ended === true && plannerCard) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: nextId.current++,
-          role: "planner",
-          thinking: plannerCard.thinking,
-          text: plannerCard.text.trim() || SUMMARY_FALLBACK,
-          model: plannerCard.model,
-          fallback: plannerCard.fallback,
-          costReason: plannerCard.costReason,
-          stats: plannerCard.stats,
-        },
-      ]);
-    }
-    prevCardEnded.current = ended;
-  }, [plannerCard]);
-
-  const handleGenerate = (prompt: string) => {
-    setMessages((prev) => [...prev, { id: nextId.current++, role: "user", text: prompt }]);
-    onGenerate(prompt);
-  };
 
   const showLiveCard = Boolean(plannerCard && !plannerCard.ended);
   const streaming = planning || showLiveCard;
@@ -227,15 +188,32 @@ export function ChatThreadView({
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-edge bg-panel/40 px-4 py-2.5">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
-          <MessageSquare size={14} aria-hidden /> Assistente da Thread
-        </h3>
-        <p className="text-[11px] text-zinc-500">
-          Descreva o escopo. O Planejador gera o PLAN.md para o loop Techlead ↔ Coder.
-        </p>
-        {hasProject && (
-          <p className="mt-1 truncate font-mono text-[10px] text-zinc-600">{projectDir}</p>
-        )}
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
+              <MessageSquare size={14} aria-hidden /> Assistente da Thread
+            </h3>
+            <p className="text-[11px] text-zinc-500">
+              Descreva o escopo. O Planejador gera o PLAN.md para o loop Techlead ↔ Coder.
+            </p>
+            {activeLabel && (
+              <p className="mt-0.5 truncate text-[10px] font-medium text-amber-300/80">{activeLabel}</p>
+            )}
+            {hasProject && (
+              <p className="mt-0.5 truncate font-mono text-[10px] text-zinc-600">{projectDir}</p>
+            )}
+          </div>
+          {hasProject && (
+            <button
+              type="button"
+              onClick={onOpenHistory}
+              title="Histórico de conversas"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-edge bg-surface px-2.5 py-1.5 text-[11px] text-zinc-400 transition-colors hover:text-zinc-200"
+            >
+              <History size={13} aria-hidden /> Histórico
+            </button>
+          )}
+        </div>
       </div>
 
       {hasProject ? (
@@ -276,7 +254,7 @@ export function ChatThreadView({
                 </div>
               )}
             </div>
-            <ChatThreadPrompt onGenerate={handleGenerate} disabled={planning} />
+            <ChatThreadPrompt onGenerate={onSend} disabled={planning} />
           </div>
           <ThreadInspector docs={docs} />
         </div>

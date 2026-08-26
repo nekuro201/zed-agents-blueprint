@@ -85,9 +85,66 @@ const initialState: EngineUiState = {
 
 export { initialState };
 
+/** Persistência dos acumuladores de tokens/custo (separados por workspace). */
+const USAGE_KEY = "pi-factory:usage-totals";
+
+export interface UsageTotals {
+  tokens: { input: number; output: number; total: number };
+  cost: number;
+}
+
+function zero(): UsageTotals {
+  return { tokens: { input: 0, output: 0, total: 0 }, cost: 0 };
+}
+
+type UsageMap = Record<string, UsageTotals>;
+
+function loadUsageMap(): UsageMap {
+  try {
+    const raw = localStorage.getItem(USAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed) ? (parsed as UsageMap) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveUsageMap(map: UsageMap): void {
+  try {
+    localStorage.setItem(USAGE_KEY, JSON.stringify(map));
+  } catch {
+    // localStorage indisponível/cheio — nunca quebra a app.
+  }
+}
+
+export function loadUsageTotals(projectDir: string): UsageTotals {
+  const t = loadUsageMap()[projectDir];
+  if (!t || typeof t !== "object") return zero();
+  return {
+    tokens: {
+      input: typeof t.tokens?.input === "number" ? t.tokens.input : 0,
+      output: typeof t.tokens?.output === "number" ? t.tokens.output : 0,
+      total: typeof t.tokens?.total === "number" ? t.tokens.total : 0,
+    },
+    cost: typeof t.cost === "number" ? t.cost : 0,
+  };
+}
+
+export function saveUsageTotals(projectDir: string, totals: UsageTotals): void {
+  const map = loadUsageMap();
+  map[projectDir] = totals;
+  saveUsageMap(map);
+}
+
 let nextId = 1;
 
-export type Action = { type: "event"; ev: EngineEvent } | { type: "tick" } | { type: "boot"; tauri: boolean };
+export type Action =
+  | { type: "event"; ev: EngineEvent }
+  | { type: "tick" }
+  | { type: "boot"; tauri: boolean }
+  | { type: "setUsage"; totals: UsageTotals }
+  | { type: "reset" };
 
 /** Índice (do fim) do último card de agente ainda aberto. */
 function lastOpenAgent(tl: TimelineItem[]): number {
@@ -114,6 +171,15 @@ function reduceUncapped(state: EngineUiState, action: Action): EngineUiState {
   // Inicialização (bugfix): registra se estamos dentro do Tauri (habilita controles).
   if (action.type === "boot") {
     return { ...state, tauri: action.tauri };
+  }
+  // Troca de workspace: recarrega o uso (tokens/custo) daquele projeto.
+  if (action.type === "setUsage") {
+    return { ...state, tokens: action.totals.tokens, cost: action.totals.cost };
+  }
+  // Fechar workspace / voltar para Projetos: limpa o estado transitório do loop
+  // (planning/running/timeline), preservando tokens/custo já acumulados.
+  if (action.type === "reset") {
+    return { ...initialState, tokens: state.tokens, cost: state.cost };
   }
 
   const { ev } = action;
@@ -341,13 +407,28 @@ export interface EngineActions {
   generateGraph: (projectDir: string, mock: boolean) => Promise<void>;
   /** E10 — garante que o processo engine existe (sem iniciar loop). Spawna se necessário. */
   ensureEngine: (projectDir: string, mock: boolean) => Promise<void>;
+  /** Limpa o estado transitório do loop (planning/running/timeline) ao fechar o workspace. */
+  reset: () => void;
 }
 
-export function useEngine(): { state: EngineUiState; actions: EngineActions; notTauri: boolean } {
-  const [state, dispatch] = useReducer(reducer, initialState);
+export function useEngine(projectDir: string): { state: EngineUiState; actions: EngineActions; notTauri: boolean } {
+  const [state, dispatch] = useReducer(reducer, initialState, (init) => {
+    const persisted = loadUsageTotals(projectDir);
+    return { ...init, tokens: persisted.tokens, cost: persisted.cost };
+  });
   const [notTauri, setNotTauri] = useState(false);
   const dispatchRef = useRef(dispatch);
   dispatchRef.current = dispatch;
+
+  // Troca de workspace: recarrega o uso (tokens/custo) do projeto aberto.
+  useEffect(() => {
+    dispatch({ type: "setUsage", totals: loadUsageTotals(projectDir) });
+  }, [projectDir]);
+
+  // Persiste os acumuladores a cada mudança (separado por workspace).
+  useEffect(() => {
+    saveUsageTotals(projectDir, { tokens: state.tokens, cost: state.cost });
+  }, [projectDir, state.tokens, state.cost]);
 
   // Timer do loop (2.2.3): enquanto roda/started, +1s por tick.
   const ticking = state.status === "running" || state.status === "starting";
@@ -485,6 +566,9 @@ export function useEngine(): { state: EngineUiState; actions: EngineActions; not
       },
       [],
     ),
+    reset: useCallback(() => {
+      dispatchRef.current({ type: "reset" });
+    }, []),
   };
 
   return { state, actions, notTauri };

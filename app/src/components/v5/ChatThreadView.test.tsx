@@ -2,13 +2,15 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ChatThreadView } from "./ChatThreadView";
+import type { ChatMessage } from "../../lib/conversations";
 
 const base = {
   mock: false,
   onProjectDirChange: () => {},
   onMockChange: () => {},
   onBrowse: () => {},
-  onGenerate: () => {},
+  onSend: () => {},
+  onOpenHistory: () => {},
 };
 
 describe("ChatThreadView (F1 — gate de projeto)", () => {
@@ -37,15 +39,25 @@ describe("ChatThreadView (F1 — gate de projeto)", () => {
   });
 });
 
-describe("ChatThreadView (F2 — bubbles e planning)", () => {
-  it("enviar escopo chama onGenerate e mostra bubble do usuário", async () => {
-    const onGenerate = vi.fn();
+describe("ChatThreadView (F2 — controlado pela conversa ativa)", () => {
+  it("enviar escopo chama onSend", async () => {
+    const onSend = vi.fn();
     const user = userEvent.setup();
-    render(<ChatThreadView projectDir="/tmp/proj" {...base} onGenerate={onGenerate} />);
+    render(<ChatThreadView projectDir="/tmp/proj" {...base} onSend={onSend} />);
     await user.type(screen.getByPlaceholderText(/descreva o escopo/i), "Tela de login JWT");
     await user.click(screen.getByRole("button", { name: /enviar/i }));
-    expect(onGenerate).toHaveBeenCalledWith("Tela de login JWT");
-    expect(screen.getByText("Tela de login JWT")).toBeInTheDocument();
+    expect(onSend).toHaveBeenCalledWith("Tela de login JWT");
+  });
+
+  it("renderiza as mensagens da conversa ativa (prop)", () => {
+    const messages: ChatMessage[] = [
+      { id: "m1", role: "user", text: "Primeiro escopo" },
+      { id: "m2", role: "planner", thinking: "Vou fatiar…", text: "", model: "llmgateway/deepseek-v4-flash" },
+    ];
+    render(<ChatThreadView projectDir="/tmp/proj" {...base} messages={messages} />);
+    expect(screen.getByText("Primeiro escopo")).toBeInTheDocument();
+    const planner = screen.getByText(/Vou fatiar/i);
+    expect(planner).toBeInTheDocument();
   });
 
   it("enquanto planning, composer fica disabled e mostra feedback do Planejador", () => {
@@ -80,69 +92,48 @@ describe("ChatThreadView (F2 — bubbles e planning)", () => {
         projectDir="/tmp/proj"
         {...base}
         planning
-        docs={{
-          plan: "# PLAN\n\n## [ ] Fase 1 — Setup\n### [ ] 1.1 RED\n",
-        }}
+        docs={{ plan: "# PLAN\n\n## [ ] Fase 1 — Setup\n### [ ] 1.1 RED\n" }}
         plannerCard={{ thinking: "Vou fatiar…", text: "", model: "llmgateway/deepseek-v4-flash", ended: false }}
       />,
     );
     expect(screen.getByTestId("planner-live")).toBeInTheDocument();
-    // Preview do PLAN.md NÃO aparece dentro do card ao vivo (live=true bloqueia o preview)
     expect(screen.queryByText("PLAN.md gerado")).not.toBeInTheDocument();
   });
 
-  it("após plan-done, congela o card do Planejador na conversa (thinking minimizado + resumo + stats + preview PLAN.md)", () => {
-    const { rerender, container } = render(
+  it("renderiza o card do Planejador congelado vindo da conversa (messages prop)", () => {
+    const messages: ChatMessage[] = [
+      {
+        id: "m1",
+        role: "planner",
+        thinking: "Vou fatiar…",
+        text: "",
+        model: "llmgateway/deepseek-v4-flash",
+        stats: { tokens: { total: 120 }, cost: 0.01 },
+      },
+    ];
+    const { container } = render(
       <ChatThreadView
         projectDir="/tmp/proj"
         {...base}
-        planning
-        docs={{
-          plan: "# PLAN\n\n## [ ] Fase 1 — Setup\n### [ ] 1.1 RED\n",
-        }}
-        plannerCard={{ thinking: "Vou fatiar…", text: "", model: "llmgateway/deepseek-v4-flash", ended: false }}
-      />,
-    );
-    // Transição: plannerCard.ended muda de false → true (plan-done)
-    rerender(
-      <ChatThreadView
-        projectDir="/tmp/proj"
-        {...base}
-        planning={false}
-        docs={{
-          plan: "# PLAN\n\n## [ ] Fase 1 — Setup\n### [ ] 1.1 RED\n",
-        }}
-        plannerCard={{
-          thinking: "Vou fatiar…",
-          text: "",
-          model: "llmgateway/deepseek-v4-flash",
-          ended: true,
-          stats: { tokens: { total: 120 }, cost: 0.01 },
-        }}
+        messages={messages}
+        docs={{ plan: "# PLAN\n\n## [ ] Fase 1 — Setup\n### [ ] 1.1 RED\n" }}
       />,
     );
 
-    // O card ao vivo some (não existe mais)
-    expect(screen.queryByTestId("planner-live")).not.toBeInTheDocument();
-
-    // O card congelado aparece na conversa (data-role="planner")
     const frozenCard = container.querySelector('[data-role="planner"]');
     expect(frozenCard).not.toBeNull();
     const card = within(frozenCard as HTMLElement);
-
-    // Resumo (fallback, pois card.text é vazio) + preview do PLAN.md + stats
     expect(card.getByText(/Inicie o loop no orquestrador/i)).toBeInTheDocument();
     expect(card.getByText("Fase 1 — Setup")).toBeInTheDocument();
     expect(card.getByText(/120 tokens/i)).toBeInTheDocument();
   });
 
-  it("segundo envio mantém as duas mensagens do usuário", async () => {
-    const user = userEvent.setup();
-    render(<ChatThreadView projectDir="/tmp/proj" {...base} />);
-    await user.type(screen.getByPlaceholderText(/descreva o escopo/i), "Primeiro escopo");
-    await user.click(screen.getByRole("button", { name: /enviar/i }));
-    await user.type(screen.getByPlaceholderText(/descreva o escopo/i), "Ajuste o plano");
-    await user.click(screen.getByRole("button", { name: /enviar/i }));
+  it("renderiza múltiplas mensagens do usuário vindo da conversa (prop)", () => {
+    const messages: ChatMessage[] = [
+      { id: "m1", role: "user", text: "Primeiro escopo" },
+      { id: "m2", role: "user", text: "Ajuste o plano" },
+    ];
+    render(<ChatThreadView projectDir="/tmp/proj" {...base} messages={messages} />);
     expect(screen.getByText("Primeiro escopo")).toBeInTheDocument();
     expect(screen.getByText("Ajuste o plano")).toBeInTheDocument();
   });

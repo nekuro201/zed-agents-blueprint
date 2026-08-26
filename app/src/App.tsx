@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FolderGit2 } from "lucide-react";
 import { useEngine } from "./hooks/useEngine";
 import { useProjectDocs } from "./hooks/useProjectDocs";
@@ -7,6 +7,10 @@ import type { PlannerCard } from "./components/v5/ChatThreadView";
 import { Shell } from "./components/v5/Shell";
 import { EnginePanel } from "./components/EnginePanel";
 import { ChatThreadView } from "./components/v5/ChatThreadView";
+import { HistoryModal } from "./components/v5/HistoryModal";
+import { ConfirmExitModal } from "./components/v5/ConfirmExitModal";
+import { useConversations } from "./hooks/useConversations";
+import { newId, type ChatMessage } from "./lib/conversations";
 import { GraphViewer } from "./components/v5/GraphViewer";
 import { ModelSettingsModal } from "./components/v5/ModelSettingsModal";
 import { StatusBar, type MotorState } from "./components/v5/StatusBar";
@@ -24,9 +28,9 @@ import { folderName, parseGitBranches } from "./lib/gitRepo";
 import type { ExplorerGroup } from "./components/v5/ExplorerTree";
 
 export default function App() {
-  const { state, actions, notTauri } = useEngine();
-  const { view, setView } = useActiveView();
   const [session, setSession] = useState<WorkspaceSession | null>(null);
+  const { state, actions, notTauri } = useEngine(session?.path ?? "");
+  const { view, setView } = useActiveView();
   const [recents, setRecents] = useState<WorkspaceSession[]>(() => loadRecents());
   const [prefs, setPrefs] = useState<EnginePrefs>(() => loadEnginePrefs());
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -36,7 +40,22 @@ export default function App() {
   const [modelSettingsOpen, setModelSettingsOpen] = useState(false);
   const [explorerOpen, setExplorerOpen] = useState(true);
   const [aborting, setAborting] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [confirmExitOpen, setConfirmExitOpen] = useState(false);
   const mock = prefs.mock;
+
+  const projectDir = session?.path ?? "";
+  const { docs, reload } = useProjectDocs(projectDir || null);
+  const {
+    conversations,
+    activeId,
+    messages,
+    createConversation,
+    activate,
+    addMessage,
+    removeConversation,
+  } = useConversations(projectDir);
+  const activeConversation = conversations.find((c) => c.id === activeId) ?? null;
 
   /** Card do Planejador (último da timeline) — streaming ou já concluído. */
   const plannerCard: PlannerCard | null = useMemo(() => {
@@ -49,8 +68,25 @@ export default function App() {
     return null;
   }, [state.timeline]);
 
-  const projectDir = session?.path ?? "";
-  const { docs, reload } = useProjectDocs(projectDir || null);
+  // Persiste o card do Planejador na conversa ativa quando a geração termina.
+  const prevPlannerEnded = useRef<boolean | null>(null);
+  useEffect(() => {
+    const ended = plannerCard?.ended ?? null;
+    if (prevPlannerEnded.current === false && ended === true && plannerCard) {
+      const msg: ChatMessage = {
+        id: newId(),
+        role: "planner",
+        thinking: plannerCard.thinking,
+        text: plannerCard.text.trim() || "PLAN.md gerado/atualizado. Inicie o loop no orquestrador.",
+        model: plannerCard.model,
+        fallback: plannerCard.fallback,
+        costReason: plannerCard.costReason,
+        stats: plannerCard.stats,
+      };
+      addMessage(msg);
+    }
+    prevPlannerEnded.current = ended;
+  }, [plannerCard, addMessage]);
 
   useEffect(() => {
     // Recarrega os docs do projeto quando o loop avança (fase/status/erro) e
@@ -223,7 +259,16 @@ export default function App() {
         view={view}
         onViewChange={setView}
         workspaceName={session.name}
-        onCloseWorkspace={() => setSession(null)}
+        onCloseWorkspace={() => {
+          // Se há execução em andamento, pede confirmação antes de abortar.
+          if (state.running || state.planning) {
+            setConfirmExitOpen(true);
+            return;
+          }
+          void actions.stop();
+          actions.reset();
+          setSession(null);
+        }}
         onAddWorkspace={async () => {
           const dir = await pickDirectory();
           if (dir) persist(dir);
@@ -277,13 +322,19 @@ export default function App() {
             planning={state.planning}
             docs={docs}
             plannerCard={plannerCard}
+            messages={messages}
+            activeLabel={activeConversation?.label ?? ""}
             onProjectDirChange={persist}
             onMockChange={setMockValue}
             onBrowse={async () => {
               const dir = await pickDirectory();
               if (dir) persist(dir);
             }}
-            onGenerate={(prompt) => void actions.generatePlan(projectDir, prompt, mock, buildModels(), buildThinking())}
+            onSend={(prompt) => {
+              addMessage({ id: newId(), role: "user", text: prompt });
+              void actions.generatePlan(projectDir, prompt, mock, buildModels(), buildThinking());
+            }}
+            onOpenHistory={() => setHistoryOpen(true)}
           />
         }
         graphView={graphView}
@@ -315,6 +366,31 @@ export default function App() {
           setModelConfig(next);
         }}
         onClose={() => setModelSettingsOpen(false)}
+      />
+      <HistoryModal
+        open={historyOpen}
+        conversations={conversations}
+        activeId={activeId}
+        onActivate={(id) => {
+          activate(id);
+          setHistoryOpen(false);
+        }}
+        onNew={() => {
+          createConversation();
+          setHistoryOpen(false);
+        }}
+        onDelete={removeConversation}
+        onClose={() => setHistoryOpen(false)}
+      />
+      <ConfirmExitModal
+        open={confirmExitOpen}
+        onCancel={() => setConfirmExitOpen(false)}
+        onConfirm={() => {
+          setConfirmExitOpen(false);
+          void actions.stop();
+          actions.reset();
+          setSession(null);
+        }}
       />
     </>
   );

@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { reducer, initialState } from "./useEngine";
+import { describe, it, expect, beforeEach } from "vitest";
+import { reducer, initialState, loadUsageTotals, saveUsageTotals } from "./useEngine";
 import type { EngineEvent } from "../lib/protocol";
 
 type S = ReturnType<typeof reducer>;
@@ -40,6 +40,35 @@ describe("reducer 2.2.3 — acumuladores e timer", () => {
     expect(reducer(s, { type: "tick" }).elapsed).toBe(1);
     const paused = apply(s, { type: "status", status: "waiting" });
     expect(reducer(paused, { type: "tick" }).elapsed).toBe(0);
+  });
+});
+
+describe("persistência de uso (tokens/custo por workspace)", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("loadUsageTotals retorna zeros quando nada foi salvo", () => {
+    expect(loadUsageTotals("/proj")).toEqual({ tokens: { input: 0, output: 0, total: 0 }, cost: 0 });
+  });
+
+  it("salva e recarrega os totais de um workspace (round-trip)", () => {
+    saveUsageTotals("/proj", { tokens: { input: 100, output: 50, total: 150 }, cost: 1.7 });
+    expect(loadUsageTotals("/proj")).toEqual({ tokens: { input: 100, output: 50, total: 150 }, cost: 1.7 });
+  });
+
+  it("mantém totais separados por workspace", () => {
+    saveUsageTotals("/a", { tokens: { input: 10, output: 0, total: 10 }, cost: 0.1 });
+    saveUsageTotals("/b", { tokens: { input: 999, output: 999, total: 1998 }, cost: 9.9 });
+    expect(loadUsageTotals("/a").tokens.total).toBe(10);
+    expect(loadUsageTotals("/b").tokens.total).toBe(1998);
+    expect(loadUsageTotals("/a").cost).toBeCloseTo(0.1);
+    expect(loadUsageTotals("/b").cost).toBeCloseTo(9.9);
+  });
+
+  it("volta para zeros se o dado salvo for corrompido", () => {
+    localStorage.setItem("pi-factory:usage-totals", "{ não é json");
+    expect(loadUsageTotals("/proj")).toEqual({ tokens: { input: 0, output: 0, total: 0 }, cost: 0 });
   });
 });
 
