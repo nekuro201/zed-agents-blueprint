@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { z } from "zod";
 import { agentRun, structured, toThinkingLevel } from "./pi.js";
-import type { AgentModels, AgentRole, AgentThinking, EngineEvent } from "./protocol.js";
+import type { AgentModels, AgentRole, AgentThinking, EngineEvent, PlanHistoryItem } from "./protocol.js";
 import { buildSkillPrompt } from "./skills.js";
 import { Repo, markPhaseDone, nextPendingPhase, planProgress, unifiedDiff } from "./repo.js";
 import { classifyProject, extractDeliverableFiles, hasUnfinishedTasks } from "./project.js";
@@ -500,6 +500,22 @@ function execFileAsync(file: string, args: string[], cwd: string): Promise<strin
 }
 
 /**
+ * Monta a instrução do Planejador com o histórico de conversa opcional.
+ * Turnos anteriores entram como "CONTEXTO" (coerência), mas o alvo é sempre o
+ * PEDIDO (última mensagem do usuário) — mantém o chat com contexto entre turnos.
+ */
+export function buildPlanInstruction(prompt: string, history?: PlanHistoryItem[]): string {
+  const base = "Crie o arquivo PLAN.md a partir do pedido abaixo, no formato obrigatório da skill (fases ## com marcador [ ] no título e tags de complexidade).";
+  if (!history || history.length === 0) {
+    return `${base}\n\nPEDIDO:\n${prompt}`;
+  }
+  const transcript = history
+    .map((h) => `${h.role === "user" ? "Usuário" : "Planejador"}: ${h.text}`)
+    .join("\n");
+  return `${base}\n\nCONTEXTO DA CONVERSA (turnos anteriores — use para manter coerência, mas o alvo é o PEDIDO abaixo):\n${transcript}\n\nPEDIDO (última mensagem do usuário):\n${prompt}`;
+}
+
+/**
  * Gera o PLAN.md a partir de um escopo escrito (composer do Planejador — 2.5).
  * - mock: grava um PLAN.md de exemplo (sem LLM) e encerra.
  * - real: roda o skill `planejador` em sessão com ferramentas (escreve o arquivo).
@@ -513,8 +529,10 @@ export async function generatePlan(opts: {
   model?: string;
   /** Nível de thinking do Planejador (vindo da UI). */
   thinking?: string;
+  /** Histórico de turnos anteriores (chat com contexto — E5/Fase C). */
+  history?: PlanHistoryItem[];
 }): Promise<void> {
-  const { projectDir, prompt, emit, mock, model, thinking } = opts;
+  const { projectDir, prompt, emit, mock, model, thinking, history } = opts;
   emit({ type: "status", status: "starting", stage: "plan", detail: "Planejador gerando o PLAN.md…" });
 
   // E10 — garante o cache de preços antes do planejador rodar (evita corrida).
@@ -538,7 +556,7 @@ export async function generatePlan(opts: {
     name: "planejador",
     projectDir,
     agentsMd,
-    instruction: `Crie o arquivo PLAN.md a partir do pedido abaixo, no formato obrigatório da skill (fases ## com marcador [ ] no título e tags de complexidade).\n\nPEDIDO:\n${prompt}`,
+    instruction: buildPlanInstruction(prompt, history),
   });
   const abort = new AbortController();
   await agentRun({ role: "planejador", projectDir, prompt: skillPrompt, model, thinkingLevel: toThinkingLevel(thinking), onEvent: emit, signal: abort.signal });

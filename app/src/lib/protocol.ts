@@ -84,10 +84,13 @@ export type AgentThinking = {
   crise?: string;
 };
 
+/** Item do histórico de conversa do Planejador (espelho do engine/src/protocol.ts). */
+export type PlanHistoryItem = { role: "user" | "planner"; text: string };
+
 /** Comandos enviados da UI para o engine (mesmo formato do engine/src/protocol.ts). */
 export type EngineCommand =
   | { type: "start"; projectDir: string; models?: AgentModels; thinking?: AgentThinking }
-  | { type: "plan"; projectDir: string; prompt: string; models?: AgentModels; thinking?: AgentThinking }
+  | { type: "plan"; projectDir: string; prompt: string; models?: AgentModels; thinking?: AgentThinking; history?: PlanHistoryItem[] }
   | { type: "graph"; projectDir: string }
   | { type: "pause" }
   | { type: "resume" }

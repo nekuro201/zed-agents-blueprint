@@ -71,7 +71,7 @@ async function main(): Promise<void> {
     }
     running = true;
     try {
-      await generatePlan({ projectDir: cmd.projectDir, prompt: cmd.prompt, emit, mock: args.mock, model: cmd.models?.planejador, thinking: cmd.thinking?.planejador });
+      await generatePlan({ projectDir: cmd.projectDir, prompt: cmd.prompt, emit, mock: args.mock, model: cmd.models?.planejador, thinking: cmd.thinking?.planejador, history: cmd.history });
     } catch (err) {
       emit({ type: "error", message: (err as Error).message });
     } finally {

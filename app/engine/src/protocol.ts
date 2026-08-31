@@ -37,9 +37,16 @@ export const AgentThinkingSchema = z.object({
 });
 export type AgentThinking = z.infer<typeof AgentThinkingSchema>;
 
+/** Item do histórico de conversa do Planejador (turnos anteriores — E5/Fase C). */
+export const PlanHistoryItemSchema = z.object({
+  role: z.enum(["user", "planner"]),
+  text: z.string(),
+});
+export type PlanHistoryItem = z.infer<typeof PlanHistoryItemSchema>;
+
 export const EngineCommandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("start"), projectDir: z.string().min(1), models: AgentModelsSchema.optional(), thinking: AgentThinkingSchema.optional() }),
-  z.object({ type: z.literal("plan"), projectDir: z.string().min(1), prompt: z.string().min(1), models: AgentModelsSchema.optional(), thinking: AgentThinkingSchema.optional() }),
+  z.object({ type: z.literal("plan"), projectDir: z.string().min(1), prompt: z.string().min(1), models: AgentModelsSchema.optional(), thinking: AgentThinkingSchema.optional(), history: z.array(PlanHistoryItemSchema).optional() }),
   z.object({ type: z.literal("graph"), projectDir: z.string().min(1) }),
   z.object({ type: z.literal("pause") }),
   z.object({ type: z.literal("resume") }),

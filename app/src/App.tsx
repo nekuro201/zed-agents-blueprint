@@ -22,7 +22,7 @@ import { pickDirectory } from "./components/ProjectBar";
 import { loadRecents, removeRecent, upsertRecent, type WorkspaceSession } from "./lib/workspaceSession";
 import { loadEnginePrefs, saveEnginePrefs, type EnginePrefs } from "./lib/enginePrefs";
 import { loadModelConfig, saveModelConfig, type AgentModelConfig } from "./lib/modelConfig";
-import type { AgentModels, AgentThinking } from "./lib/protocol";
+import type { AgentModels, AgentThinking, PlanHistoryItem } from "./lib/protocol";
 import { createGitBranch, listGitBranches } from "./lib/engine";
 import { folderName, parseGitBranches } from "./lib/gitRepo";
 import type { ExplorerGroup } from "./components/v5/ExplorerTree";
@@ -331,8 +331,17 @@ export default function App() {
               if (dir) persist(dir);
             }}
             onSend={(prompt) => {
+              // Histórico de turnos anteriores (sem o thinking do Planner) para o
+              // engine manter o contexto — cada turno não é mais isolado.
+              const history: PlanHistoryItem[] = messages
+                .map((m) =>
+                  m.role === "user"
+                    ? { role: "user" as const, text: m.text }
+                    : { role: "planner" as const, text: m.text.trim() || m.thinking.trim() },
+                )
+                .filter((h) => h.text.trim().length > 0);
               addMessage({ id: newId(), role: "user", text: prompt });
-              void actions.generatePlan(projectDir, prompt, mock, buildModels(), buildThinking());
+              void actions.generatePlan(projectDir, prompt, mock, buildModels(), buildThinking(), history);
             }}
             onOpenHistory={() => setHistoryOpen(true)}
           />

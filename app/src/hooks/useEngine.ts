@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { engineSend, engineStart, engineStop, isTauri, onEngineEvent, onEngineExit, onEngineLog } from "../lib/engine";
-import { EngineEventSchema, type AgentModels, type AgentThinking, type AgentRole, type EngineCommand, type EngineEvent, type EngineStatus } from "../lib/protocol";
+import { EngineEventSchema, type AgentModels, type AgentThinking, type AgentRole, type EngineCommand, type EngineEvent, type EngineStatus, type PlanHistoryItem } from "../lib/protocol";
 
 export type ToolEvent = { tool: string; args: string; ok?: boolean; summary?: string };
 
@@ -402,7 +402,7 @@ export interface EngineActions {
   /** E4 — restaura o snapshot do TODO_BATCH.md e encerra para auditoria humana. */
   crisisRevert: () => Promise<void>;
   /** Pede ao engine para gerar o PLAN.md a partir do escopo escrito (composer do Planejador). */
-  generatePlan: (projectDir: string, prompt: string, mock?: boolean, models?: AgentModels, thinking?: AgentThinking) => Promise<void>;
+  generatePlan: (projectDir: string, prompt: string, mock?: boolean, models?: AgentModels, thinking?: AgentThinking, history?: PlanHistoryItem[]) => Promise<void>;
   /** Dispara a geração do grafo de conhecimento (graphify) no projectDir. */
   generateGraph: (projectDir: string, mock: boolean) => Promise<void>;
   /** E10 — garante que o processo engine existe (sem iniciar loop). Spawna se necessário. */
@@ -526,13 +526,13 @@ export function useEngine(projectDir: string): { state: EngineUiState; actions: 
     crisisAccept: useCallback(() => send({ type: "crisis-accept" }), [send]),
     crisisRevert: useCallback(() => send({ type: "crisis-revert" }), [send]),
     generatePlan: useCallback(
-      async (projectDir, prompt, mock = false, models, thinking) => {
+      async (projectDir, prompt, mock = false, models, thinking, history) => {
         if (!isTauri()) return;
         try {
           // Mesmo cuidado do start: processo antigo pode estar com --mock de outra sessão.
           await engineStop().catch(() => undefined);
           await engineStart(projectDir, mock);
-          await send({ type: "plan", projectDir, prompt, models, thinking });
+          await send({ type: "plan", projectDir, prompt, models, thinking, history });
         } catch (err) {
           dispatchRef.current({ type: "event", ev: { type: "error", message: (err as Error).message } });
         }

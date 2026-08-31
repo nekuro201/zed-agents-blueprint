@@ -208,9 +208,15 @@ export async function agentRun(opts: AgentRunOptions): Promise<AgentRunResult> {
         // E10 — emite o agent-start com o modelo REAL que foi usado na sessão
         // (pode ser diferente do configurado se caiu no fallback do ModelRegistry).
         const active = session.model;
-        resolvedModel = active
-          ? `${active.provider}/${active.id}`
-          : opts.model;
+        if (!active) {
+          // 0 tokens é o sintoma clássico de sessão sem modelo: sem este check,
+          // `session.prompt` rodaria em vazio e devolveria texto vazio + custo 0,
+          // parecendo que o agente "rodou". Falhamos alto e visível.
+          throw new Error(
+            `Nenhum modelo foi resolvido para o agente "${opts.role}". Verifique o seletor de modelos (config) e o ~/.pi/agent/models.json + auth.json do pi.`,
+          );
+        }
+        resolvedModel = `${active.provider}/${active.id}`;
         const fallback = resolvedModel !== opts.model;
         emit(opts, { type: "agent-start", role: opts.role, model: resolvedModel, fallback });
 
@@ -218,7 +224,20 @@ export async function agentRun(opts: AgentRunOptions): Promise<AgentRunResult> {
           emit(opts, { type: "log", level: "warn", message: `Modelo configurado "${opts.model}" não encontrado; usando fallback "${resolvedModel}".` });
         }
 
-        await session.prompt(opts.prompt, { expandPromptTemplates: true });
+        // expandPromptTemplates: false — nossos prompts são texto plano (skill + AGENTS.md +
+        // instrução). O SDK vê comandos /skill ou templates {{ }} fora de bloco de código e
+        // tenta expandi-los, podendo corromper o prompt.
+        // O comportamento igual ao structured() (que também usa false) é seguro.
+
+        // Diagnóstico: prompt vazio gera 0 tokens silencioso (o LLM nunca roda).
+        if (!opts.prompt || opts.prompt.trim().length === 0) {
+          throw new Error(
+            `Prompt vazio para o agente "${opts.role}". Possível causa: skill não resolvida, AGENTS.md ou SKILL.md não encontrados no projectDir/skills.`,
+          );
+        }
+        emit(opts, { type: "log", level: "debug", message: `[${opts.role}] Prompt enviado (${opts.prompt.length} chars, ~${Math.ceil(opts.prompt.length / 4)} tokens).` });
+
+        await session.prompt(opts.prompt, { expandPromptTemplates: false });
         await session.waitForIdle();
 
         const result = extractLastAssistant(session);
@@ -309,9 +328,12 @@ export async function structured<T>(opts: StructuredOptions<T>): Promise<T> {
 
             // E10 — resolve o modelo real (fallback se não configurado)
             const active = session.model;
-            resolvedModel = active
-              ? `${active.provider}/${active.id}`
-              : opts.model;
+            if (!active) {
+              throw new Error(
+                `Nenhum modelo foi resolvido para o agente "${opts.role}". Verifique o seletor de modelos (config) e o ~/.pi/agent/models.json + auth.json do pi.`,
+              );
+            }
+            resolvedModel = `${active.provider}/${active.id}`;
 
             const fix = lastError
               ? `\n\nATENÇÃO: a resposta anterior não obedeceu ao formato JSON exigido. Erro: ${(lastError as Error).message}\nResponda NOVAMENTE com o JSON EXATO no formato pedido acima — apenas o JSON, sem texto, sem markdown, sem campos extras.`
