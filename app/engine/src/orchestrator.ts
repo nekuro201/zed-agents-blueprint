@@ -376,6 +376,12 @@ export async function runOrchestrator(opts: OrchestratorOptions): Promise<void> 
         emit({ type: "status", status: "running" });
         // Continua o while — a próxima iteração lê o novo TODO_BATCH.md.
       }
+
+      // Diagnóstico (2.2.4): RSS/heap do processo ao fim de cada iteração de fase.
+      // É log `debug` — a UI o descarta; fica visível ao rodar o engine standalone
+      // ou ao monitorar o stdout do sidecar durante um loop real.
+      const mem = process.memoryUsage();
+      emit({ type: "log", level: "debug", message: `[mem] rss=${Math.round(mem.rss / 1024 / 1024)}MB heapUsed=${Math.round(mem.heapUsed / 1024 / 1024)}MB` });
     }
 
     if (!crise) {

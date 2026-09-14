@@ -190,4 +190,29 @@ describe("unifiedDiff (Fase 4 — crise)", () => {
     const diff = unifiedDiff(before, after);
     expect(diff).toContain("+- [ ] T1");
   });
+
+  it("arquivos muito grandes caem no fallback O(m+n) sem estourar memória", () => {
+    const big = (n: number) => Array.from({ length: n }, (_, i) => `linha ${i}`).join("\n");
+    const before = big(3000);
+    const after = big(3000) + "\n# adicionada no fim\n";
+    // 3000×3001 = 9M células >> MAX_LCS_CELLS → força o trimDiff.
+    const diff = unifiedDiff(before, after);
+    expect(diff).toContain("--- a/TODO_BATCH.md");
+    expect(diff).toContain("+++ b/TODO_BATCH.md");
+    expect(diff).toContain("+# adicionada no fim");
+    // Diff compacto (só a linha nova) — não ecoa o arquivo inteiro.
+    expect(diff.split("\n").length).toBeLessThan(20);
+  });
+
+  it("fallback preserva o truncamento em maxLen", () => {
+    const big = (n: number) => Array.from({ length: n }, (_, i) => `linha ${i}`).join("\n");
+    const diff = unifiedDiff(big(2000), big(2000) + "\nx\ny\nz\n", 40);
+    expect(diff.length).toBeLessThanOrEqual(40 + "\n…(truncado)".length);
+    expect(diff).toContain("…(truncado)");
+  });
+
+  it("fallback com textos idênticos grandes → diff vazio", () => {
+    const big = (n: number) => Array.from({ length: n }, (_, i) => `linha ${i}`).join("\n");
+    expect(unifiedDiff(big(3000), big(3000))).toBe("");
+  });
 });

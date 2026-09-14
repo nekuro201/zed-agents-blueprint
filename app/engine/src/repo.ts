@@ -190,20 +190,33 @@ export async function computeGraphStaleness(projectDir: string): Promise<GraphSt
   return { stale: changedCount > 0, changedCount };
 }
 
+/** Teto de células da tabela DP do LCS (memória/tempo O(m×n)). */
+const MAX_LCS_CELLS = 2_250_000; // 1500×1500 ≈ 18MB (smis) — nunca GBs.
+
 /**
  * E4 — Diff unificado simples (sem dependência externa).
  * Compara linha a linha e gera um unified diff com cabeçalho.
  * @param maxLen se fornecido, trunca o diff nesse comprimento máximo.
+ *
+ * Limite de segurança: o LCS clássico é O(m×n) em memória/tempo — um
+ * TODO_BATCH.md reescrito com dezenas de milhares de linhas (protocolo de
+ * crise) alocaria uma tabela DP de GBs e derrubaria o processo. Acima do teto,
+ * usamos um diff por prefixo/sufixo comum (O(m+n)), suficiente porque o evento
+ * `crisis` já trunca o texto em `maxLen` na UI.
  */
 export function unifiedDiff(before: string, after: string, maxLen?: number): string {
   const beforeLines = before.split("\n");
   const afterLines = after.split("\n");
 
-  // Algoritmo LCS simples (longest common subsequence) para alinhar linhas.
   const m = beforeLines.length;
   const n = afterLines.length;
 
-  // Tabela dp para LCS
+  if (m * n > MAX_LCS_CELLS) {
+    return trimDiff(beforeLines, afterLines, maxLen);
+  }
+
+  // Algoritmo LCS simples (longest common subsequence) para alinhar linhas.
+  // Tabela dp para LCS (delimitada pelo teto acima).
   const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
@@ -236,6 +249,43 @@ export function unifiedDiff(before: string, after: string, maxLen?: number): str
   // Se nada mudou, retorna vazio
   const hasChanges = chunks.some((c) => c.startsWith("-") || c.startsWith("+"));
   if (!hasChanges) return "";
+
+  let diff = "--- a/TODO_BATCH.md\n+++ b/TODO_BATCH.md\n" + chunks.join("\n");
+
+  if (maxLen !== undefined && diff.length > maxLen) {
+    diff = diff.slice(0, maxLen) + "\n…(truncado)";
+  }
+
+  return diff;
+}
+
+/**
+ * Fallback O(m+n) para arquivos grandes: trima o prefixo e o sufixo comuns e
+ * emite as linhas divergentes do meio como remoções seguidas de adições.
+ * Não é o diff ótimo do LCS, mas nunca explode em memória — suficiente para o
+ * caso patológico do protocolo de crise (texto já truncado em maxLen na UI).
+ */
+function trimDiff(beforeLines: string[], afterLines: string[], maxLen?: number): string {
+  let start = 0;
+  const minLen = Math.min(beforeLines.length, afterLines.length);
+  while (start < minLen && beforeLines[start] === afterLines[start]) start++;
+
+  let endBefore = beforeLines.length;
+  let endAfter = afterLines.length;
+  while (
+    endBefore > start &&
+    endAfter > start &&
+    beforeLines[endBefore - 1] === afterLines[endAfter - 1]
+  ) {
+    endBefore--;
+    endAfter--;
+  }
+
+  if (start === endBefore && start === endAfter) return ""; // idênticos
+
+  const chunks: string[] = [];
+  for (let i = start; i < endBefore; i++) chunks.push("-" + beforeLines[i]);
+  for (let i = start; i < endAfter; i++) chunks.push("+" + afterLines[i]);
 
   let diff = "--- a/TODO_BATCH.md\n+++ b/TODO_BATCH.md\n" + chunks.join("\n");
 
