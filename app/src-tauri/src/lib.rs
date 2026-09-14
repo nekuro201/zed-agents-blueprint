@@ -294,6 +294,121 @@ fn git_checkout_new(project_dir: String, name: String) -> Result<(), String> {
     Ok(())
 }
 
+// ── Memória dos processos (indicador do rodapé) ───────────────────────────────
+//
+// O rodapé mostra o RSS (memória residente) dos processos relevantes para
+// diagnosticar loop longo sem abrir o htop: o webview do sistema (suspeito
+// clássico de inflar com DOM/streaming) e o sidecar Node do engine. No Linux
+// lemos `/proc`; nas outras plataformas os campos voltam `null` (degradação
+// graciosa — o indicador simplesmente não aparece).
+
+#[cfg(target_os = "linux")]
+fn rss_bytes(pid: u32) -> Option<u64> {
+    let status = std::fs::read_to_string(format!("/proc/{pid}/status")).ok()?;
+    for line in status.lines() {
+        if let Some(rest) = line.strip_prefix("VmRSS:") {
+            let kb: u64 = rest.split_whitespace().next()?.parse().ok()?;
+            return Some(kb * 1024);
+        }
+    }
+    None
+}
+
+#[cfg(not(target_os = "linux"))]
+fn rss_bytes(_pid: u32) -> Option<u64> {
+    None
+}
+
+/// PPid a partir do `/proc/<pid>/stat`. O `comm` vem entre parênteses e pode
+/// conter espaços/parênteses — por isso parseamos depois do ÚLTIMO `)`.
+#[cfg(target_os = "linux")]
+fn ppid_of(stat: &str) -> Option<u32> {
+    let close = stat.rfind(')')?;
+    let mut fields = stat.get(close + 1..)?.split_whitespace();
+    let _state = fields.next()?;
+    fields.next()?.parse().ok()
+}
+
+/// True se `pid` está na árvore de `ancestor` (até `max_depth` níveis acima).
+/// O WebKitGTK roda o web process sob sandbox (`bwrap`), então o filho direto
+/// do app nem sempre é o próprio WebKitWebProcess.
+#[cfg(target_os = "linux")]
+fn is_descendant_of(pid: u32, ancestor: u32, max_depth: u32) -> bool {
+    let mut current = pid;
+    for _ in 0..max_depth {
+        let Some(parent) = std::fs::read_to_string(format!("/proc/{current}/stat"))
+            .ok()
+            .and_then(|stat| ppid_of(&stat))
+        else {
+            return false;
+        };
+        if parent == ancestor {
+            return true;
+        }
+        if parent == 0 || parent == current {
+            return false;
+        }
+        current = parent;
+    }
+    false
+}
+
+/// Soma o RSS de todos os `WebKitWebProcess` da NOSSA árvore de processos
+/// (outras instâncias do webview no sistema ficam de fora).
+#[cfg(target_os = "linux")]
+fn webview_rss(app_pid: u32) -> Option<u64> {
+    let entries = std::fs::read_dir("/proc").ok()?;
+    let mut total: u64 = 0;
+    let mut found = false;
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else { continue };
+        let Ok(pid) = name.parse::<u32>() else {
+            continue;
+        };
+        let Ok(comm) = std::fs::read_to_string(format!("/proc/{pid}/comm")) else {
+            continue;
+        };
+        if !comm.trim().starts_with("WebKitWebProcess") {
+            continue;
+        }
+        if !is_descendant_of(pid, app_pid, 6) {
+            continue;
+        }
+        if let Some(rss) = rss_bytes(pid) {
+            total += rss;
+            found = true;
+        }
+    }
+    if found {
+        Some(total)
+    } else {
+        None
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn webview_rss(_app_pid: u32) -> Option<u64> {
+    None
+}
+
+/// RSS (em bytes) do processo do app, do webview e do sidecar do engine.
+/// Campos `null` quando o processo não existe (engine parado) ou a plataforma
+/// não expõe a medição.
+#[tauri::command]
+fn process_memory(state: State<'_, EngineState>) -> Result<serde_json::Value, String> {
+    let app_pid = std::process::id();
+    let engine = {
+        let proc = state.lock().unwrap();
+        proc.child.as_ref().and_then(|child| rss_bytes(child.id()))
+    };
+    Ok(serde_json::json!({
+        "app": rss_bytes(app_pid),
+        "webview": webview_rss(app_pid),
+        "engine": engine,
+    }))
+}
+
 /// Encerra o engine ao fechar a janela/app.
 fn kill_on_exit(app: &AppHandle) {
     if let Some(state) = app.try_state::<EngineState>() {
@@ -315,7 +430,8 @@ pub fn run() {
             read_graph_file,
             graph_staleness,
             git_branches,
-            git_checkout_new
+            git_checkout_new,
+            process_memory
         ])
         .build(tauri::generate_context!())
         .expect("erro ao construir o app Tauri")
@@ -324,4 +440,40 @@ pub fn run() {
                 kill_on_exit(app_handle);
             }
         });
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod tests {
+    use super::{ppid_of, rss_bytes};
+
+    #[test]
+    fn ppid_of_le_o_stat_com_comm_simples() {
+        let stat = "1234 (node) S 1 1234 1234 0 -1 4194560";
+        assert_eq!(ppid_of(stat), Some(1));
+    }
+
+    #[test]
+    fn ppid_of_le_o_stat_com_espacos_e_parenteses_no_comm() {
+        // O `comm` pode conter espaços/parênteses — parseamos após o ÚLTIMO ')'.
+        let stat = "900 (WebKitWeb Process (foo)) S 42 900 900 0 -1 0";
+        assert_eq!(ppid_of(stat), Some(42));
+    }
+
+    #[test]
+    fn ppid_of_retorna_none_em_entrada_irregular() {
+        assert_eq!(ppid_of(""), None);
+        assert_eq!(ppid_of("sem parenteses"), None);
+        assert_eq!(ppid_of("1234 (node)"), None);
+        assert_eq!(ppid_of("1234 (node) S abc"), None);
+    }
+
+    #[test]
+    fn rss_bytes_le_o_proprio_processo() {
+        // Valida o parser contra o /proc real: o processo de teste tem RSS > 0.
+        let rss = rss_bytes(std::process::id());
+        assert!(
+            rss.is_some_and(|v| v > 0),
+            "RSS do próprio processo deveria ser medido e > 0, veio {rss:?}"
+        );
+    }
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatCost, formatDuration, formatTokens, formatRelativeTime } from "./format";
+import { formatBytes, formatCost, formatDuration, formatTokens, formatRelativeTime } from "./format";
 
 describe("format", () => {
   it("formata tokens (k acima de 1000, m acima de 1 milhão)", () => {
@@ -21,6 +21,19 @@ describe("format", () => {
     expect(formatDuration(0)).toBe("00:00:00");
     expect(formatDuration(75_000)).toBe("00:01:15");
     expect(formatDuration(3_661_000)).toBe("01:01:01");
+  });
+
+  it("formata bytes em KB/MB/GB (indicador de memória)", () => {
+    expect(formatBytes(512)).toBe("512 B");
+    expect(formatBytes(2048)).toBe("2 KB");
+    expect(formatBytes(5 * 1024 ** 2)).toBe("5 MB");
+    expect(formatBytes(1.5 * 1024 ** 3)).toBe("1.50 GB");
+    expect(formatBytes(8 * 1024 ** 3)).toBe("8.00 GB");
+  });
+
+  it("formatBytes degrada para — em valores inválidos", () => {
+    expect(formatBytes(Number.NaN)).toBe("—");
+    expect(formatBytes(-1)).toBe("—");
   });
 
   it("formata tempo relativo", () => {

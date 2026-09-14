@@ -66,6 +66,28 @@ export async function listGitBranches(projectDir: string): Promise<{ current: st
   return invoke("git_branches", { projectDir });
 }
 
+/**
+ * RSS (memória residente, bytes) dos processos do app — indicador do rodapé.
+ * `null` = medição indisponível (fora do Tauri ou plataforma não suportada).
+ */
+export interface ProcessMemory {
+  /** Processo do app (Rust). */
+  app: number | null;
+  /** Webview do sistema (WebKitWebProcess) — soma dos processos da nossa árvore. */
+  webview: number | null;
+  /** Sidecar Node do engine (null quando o engine está parado). */
+  engine: number | null;
+}
+
+export async function processMemory(): Promise<ProcessMemory | null> {
+  if (!isTauri()) return null;
+  try {
+    return await invoke<ProcessMemory>("process_memory");
+  } catch {
+    return null;
+  }
+}
+
 export async function createGitBranch(projectDir: string, name: string): Promise<void> {
   if (!isTauri()) return;
   await invoke("git_checkout_new", { projectDir, name });
