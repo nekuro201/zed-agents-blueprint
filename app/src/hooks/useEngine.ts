@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { engineSend, engineStart, engineStop, isTauri, onEngineEvent, onEngineExit, onEngineLog } from "../lib/engine";
 import { EngineEventSchema, type AgentModels, type AgentThinking, type AgentRole, type EngineCommand, type EngineEvent, type EngineStatus, type PlanHistoryItem } from "../lib/protocol";
 
@@ -18,6 +18,8 @@ export type TimelineItem =
       ended: boolean;
       thinking: string;
       text: string;
+      /** 2.2.4 — true quando algum conteúdo do card (texto/thinking/tools) foi truncado por cap de memória. */
+      capped?: boolean;
       stats?: { tokens: { input: number; output: number; total: number }; cost: number };
       durationMs?: number;
       tools: ToolEvent[];
@@ -138,6 +140,20 @@ export function saveUsageTotals(projectDir: string, totals: UsageTotals): void {
 }
 
 let nextId = 1;
+
+/** Cap de conteúdo por card de agente (2.2.4) — o nº de itens já é capado;
+ * o conteúdo de texto/thinking/tools de cada card NUNCA cresce sem teto. */
+export const MAX_AGENT_TEXT = 100_000;
+export const MAX_AGENT_TOOLS = 200;
+
+/** Concatena com cap de tamanho, mantendo a CAUDA (conteúdo mais recente do
+ * streaming — o que está visível no terminal). Retorna se o cap foi atingido. */
+function appendCapped(current: string, delta: string, max: number): { value: string; capped: boolean } {
+  if (!delta) return { value: current, capped: false };
+  const next = current + delta;
+  if (next.length <= max) return { value: next, capped: false };
+  return { value: next.slice(-max), capped: true };
+}
 
 export type Action =
   | { type: "event"; ev: EngineEvent }
@@ -260,18 +276,38 @@ function reduceUncapped(state: EngineUiState, action: Action): EngineUiState {
     }
 
     case "token":
-      return patchAgent((a) => ({ ...a, text: a.text + ev.delta }));
+      return patchAgent((a) => {
+        const r = appendCapped(a.text, ev.delta, MAX_AGENT_TEXT);
+        return { ...a, text: r.value, capped: a.capped || r.capped };
+      });
 
     case "thinking":
-      return patchAgent((a) => ({ ...a, thinking: a.thinking + ev.delta }));
+      return patchAgent((a) => {
+        const r = appendCapped(a.thinking, ev.delta, MAX_AGENT_TEXT);
+        return { ...a, thinking: r.value, capped: a.capped || r.capped };
+      });
 
     case "agent-message":
-      return ev.kind === "thinking"
-        ? patchAgent((a) => ({ ...a, thinking: a.thinking + ev.text }))
-        : patchAgent((a) => ({ ...a, text: a.text + ev.text }));
+      if (ev.kind === "thinking") {
+        return patchAgent((a) => {
+          const r = appendCapped(a.thinking, ev.text, MAX_AGENT_TEXT);
+          return { ...a, thinking: r.value, capped: a.capped || r.capped };
+        });
+      }
+      return patchAgent((a) => {
+        const r = appendCapped(a.text, ev.text, MAX_AGENT_TEXT);
+        return { ...a, text: r.value, capped: a.capped || r.capped };
+      });
 
     case "tool-call":
-      return patchAgent((a) => ({ ...a, tools: [...a.tools, { tool: ev.tool, args: ev.args }] }));
+      return patchAgent((a) => {
+        // Cap de tools por card: descarta a mais antiga ao estourar o teto.
+        const tools =
+          a.tools.length >= MAX_AGENT_TOOLS
+            ? [...a.tools.slice(1), { tool: ev.tool, args: ev.args }]
+            : [...a.tools, { tool: ev.tool, args: ev.args }];
+        return { ...a, tools, capped: a.capped || a.tools.length >= MAX_AGENT_TOOLS };
+      });
 
     case "tool-result":
       return patchAgent((a) => {
@@ -376,12 +412,127 @@ function reduceUncapped(state: EngineUiState, action: Action): EngineUiState {
 /** Cap de estado (2.2.4): timeline fica limitada em memória — nunca cresce sem teto. */
 const MAX_TIMELINE_ITEMS = 500;
 
+/** Intervalo de flush do buffer de streaming (2.2.4): agrupa deltas de
+ * token/thinking para a UI não re-renderizar a cada token do SDK. */
+const STREAM_FLUSH_MS = 200;
+
 export function reducer(state: EngineUiState, action: Action): EngineUiState {
   const next = reduceUncapped(state, action);
   if (next.timeline.length > MAX_TIMELINE_ITEMS) {
     return { ...next, timeline: next.timeline.slice(-MAX_TIMELINE_ITEMS) };
   }
   return next;
+}
+
+/** Card do Planejador (derivado da timeline) — streaming ou já concluído. */
+export interface PlannerCard {
+  thinking: string;
+  text: string;
+  model?: string;
+  fallback?: boolean;
+  costReason?: string;
+  ended: boolean;
+  stats?: { tokens: { total: number }; cost: number };
+}
+
+// ── Store externo (2.2.4 — isolamento de streaming) ───────────────────────
+// O estado do engine vive fora do ciclo de vida do React (singleton do app).
+// Com `useSyncExternalStore`, cada consumidor assina apenas o pedaço que usa:
+// o App e as views inativas NÃO re-renderizam a cada flush de streaming — só
+// quem consome o campo que mudou (ex.: o EnginePanel assina o estado inteiro,
+// pois mostra o terminal em tempo real).
+
+let storeState: EngineUiState = initialState;
+const storeListeners = new Set<() => void>();
+
+/** Card do Planejador derivado da timeline, cacheado por referência do card de
+ * agente: fica estável enquanto o card não muda, então views que só mostram o
+ * Planejador (Chat da Thread) não re-renderizam durante um loop — apenas
+ * durante o streaming do próprio Planejador. */
+let plannerSource: Extract<TimelineItem, { kind: "agent" }> | null = null;
+let plannerCardRef: PlannerCard | null = null;
+
+function recomputePlannerCard(): void {
+  const tl = storeState.timeline;
+  for (let i = tl.length - 1; i >= 0; i--) {
+    const it = tl[i];
+    if (it && it.kind === "agent" && it.role === "planejador") {
+      if (it !== plannerSource) {
+        plannerSource = it;
+        plannerCardRef = {
+          thinking: it.thinking,
+          text: it.text,
+          model: it.model,
+          fallback: it.fallback,
+          costReason: it.costReason,
+          ended: it.ended,
+          stats: it.stats,
+        };
+      }
+      return;
+    }
+  }
+  if (plannerSource !== null) {
+    plannerSource = null;
+    plannerCardRef = null;
+  }
+}
+
+function dispatch(action: Action): void {
+  const next = reducer(storeState, action);
+  if (next === storeState) return; // nada mudou (ex.: debug log) — não notifica
+  storeState = next;
+  recomputePlannerCard();
+  storeListeners.forEach((l) => l());
+}
+
+/** Reseta o store para o estado inicial (isolamento entre testes/sessões). */
+export function resetEngineStore(): void {
+  storeState = initialState;
+  plannerSource = null;
+  plannerCardRef = null;
+  storeListeners.forEach((l) => l());
+}
+
+export { dispatch };
+
+/**
+ * Despacha um evento do protocolo direto no store (sem o buffer de streaming).
+ * Usado por testes e por ferramentas externas; o fluxo normal passa pela
+ * `useEngine` (listeners do Tauri + buffer).
+ */
+export function dispatchEngineEvent(ev: EngineEvent): void {
+  dispatch({ type: "event", ev });
+}
+
+function subscribe(listener: () => void): () => void {
+  storeListeners.add(listener);
+  return () => {
+    storeListeners.delete(listener);
+  };
+}
+
+function getState(): EngineUiState {
+  return storeState;
+}
+
+/** Assina o estado inteiro — re-renderiza a cada mudança (usado pelo painel do
+ * loop, que exibe o terminal em tempo real). */
+export function useEngineState(): EngineUiState {
+  return useSyncExternalStore(subscribe, getState, getState);
+}
+
+/** Assina um pedaço do estado — re-renderiza só quando o valor selecionado
+ * muda. O seletor deve retornar um primitivo ou uma referência estável (os
+ * campos do estado mantêm a referência quando não mudam). */
+export function useEngineSelector<T>(selector: (s: EngineUiState) => T): T {
+  return useSyncExternalStore(subscribe, () => selector(getState()), () => selector(getState()));
+}
+
+/** Card do Planejador (derivado da timeline, cacheado) — referência estável
+ * enquanto o card não muda. */
+export function usePlannerCard(): PlannerCard | null {
+  return useSyncExternalStore(subscribe, () => plannerCardRef, () => plannerCardRef);
 }
 
 import { handleModelsListResult } from "./useModelList";
@@ -411,36 +562,62 @@ export interface EngineActions {
   reset: () => void;
 }
 
-export function useEngine(projectDir: string): { state: EngineUiState; actions: EngineActions; notTauri: boolean } {
-  const [state, dispatch] = useReducer(reducer, initialState, (init) => {
-    const persisted = loadUsageTotals(projectDir);
-    return { ...init, tokens: persisted.tokens, cost: persisted.cost };
-  });
+export function useEngine(projectDir: string): { actions: EngineActions; notTauri: boolean } {
   const [notTauri, setNotTauri] = useState(false);
-  const dispatchRef = useRef(dispatch);
-  dispatchRef.current = dispatch;
 
-  // Troca de workspace: recarrega o uso (tokens/custo) do projeto aberto.
+  // Reinicializa o store no mount/troca de workspace: limpa o estado transitório
+  // do loop anterior e recarrega os acumuladores persistidos do workspace.
   useEffect(() => {
+    dispatch({ type: "reset" });
     dispatch({ type: "setUsage", totals: loadUsageTotals(projectDir) });
   }, [projectDir]);
 
-  // Persiste os acumuladores a cada mudança (separado por workspace).
+  // Persiste os acumuladores (tokens/custo) apenas quando mudam (agent-end) —
+  // evita write no localStorage a cada flush de streaming.
   useEffect(() => {
-    saveUsageTotals(projectDir, { tokens: state.tokens, cost: state.cost });
-  }, [projectDir, state.tokens, state.cost]);
+    let lastTokens = getState().tokens;
+    let lastCost = getState().cost;
+    const unsub = subscribe(() => {
+      const s = getState();
+      if (s.tokens !== lastTokens || s.cost !== lastCost) {
+        lastTokens = s.tokens;
+        lastCost = s.cost;
+        saveUsageTotals(projectDir, { tokens: s.tokens, cost: s.cost });
+      }
+    });
+    return unsub;
+  }, [projectDir]);
 
-  // Timer do loop (2.2.3): enquanto roda/started, +1s por tick.
-  const ticking = state.status === "running" || state.status === "starting";
+  // Buffer de streaming (2.2.4): deltas de token/thinking acumulam aqui e são
+  // despachados em lote a cada STREAM_FLUSH_MS (ou antes de um evento não-stream).
+  const streamBuf = useRef<Map<AgentRole, { text: string; thinking: string }>>(new Map());
+  const streamTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flushStream = useCallback(() => {
+    if (streamTimer.current) {
+      clearTimeout(streamTimer.current);
+      streamTimer.current = null;
+    }
+    const buf = streamBuf.current;
+    if (buf.size === 0) return;
+    streamBuf.current = new Map();
+    for (const [role, d] of buf) {
+      if (d.text) dispatch({ type: "event", ev: { type: "token", role, delta: d.text } });
+      if (d.thinking) dispatch({ type: "event", ev: { type: "thinking", role, delta: d.thinking } });
+    }
+  }, []);
+
+  // Timer do loop (2.2.3): +1s por tick enquanto roda/started.
+  const ticking = useEngineSelector((s) => s.status === "running" || s.status === "starting");
   useEffect(() => {
     if (!ticking) return;
-    const id = window.setInterval(() => dispatchRef.current({ type: "tick" }), 1000);
+    const id = window.setInterval(() => dispatch({ type: "tick" }), 1000);
     return () => window.clearInterval(id);
   }, [ticking]);
 
   useEffect(() => {
     const tauri = isTauri();
-    dispatchRef.current({ type: "boot", tauri });
+    dispatch({ type: "boot", tauri });
     if (!tauri) {
       setNotTauri(true);
       return;
@@ -458,18 +635,35 @@ export function useEngine(projectDir: string): { state: EngineUiState; actions: 
         return;
       }
       const result = EngineEventSchema.safeParse(parsed);
-      if (result.success) {
-        dispatchRef.current({ type: "event", ev: result.data });
-        handleEventDispatch(result.data);
+      if (!result.success) return;
+      const ev = result.data;
+      // Streaming (2.2.4): token/thinking entram no buffer; a UI só re-renderiza
+      // a cada STREAM_FLUSH_MS (ou antes de qualquer evento não-stream, que muda
+      // o card — ex.: agent-end fecha o card com o conteúdo completo).
+      if (ev.type === "token" || ev.type === "thinking") {
+        const b = streamBuf.current.get(ev.role) ?? { text: "", thinking: "" };
+        if (ev.type === "token") b.text += ev.delta;
+        else b.thinking += ev.delta;
+        streamBuf.current.set(ev.role, b);
+        if (!streamTimer.current) {
+          streamTimer.current = setTimeout(() => {
+            streamTimer.current = null;
+            flushStream();
+          }, STREAM_FLUSH_MS);
+        }
+        return;
       }
+      flushStream();
+      dispatch({ type: "event", ev });
+      handleEventDispatch(ev);
     };
 
     const handleLogLine = (line: string) => {
-      dispatchRef.current({ type: "event", ev: { type: "log", level: "debug", message: `[stderr] ${line}` } });
+      dispatch({ type: "event", ev: { type: "log", level: "debug", message: `[stderr] ${line}` } });
     };
 
     const handleExit = () => {
-      dispatchRef.current({ type: "event", ev: { type: "exit", code: null } });
+      dispatch({ type: "event", ev: { type: "exit", code: null } });
     };
 
     void (async () => {
@@ -487,6 +681,10 @@ export function useEngine(projectDir: string): { state: EngineUiState; actions: 
 
     return () => {
       disposed = true;
+      if (streamTimer.current) {
+        clearTimeout(streamTimer.current);
+        streamTimer.current = null;
+      }
       unlisteners.forEach((u) => u());
     };
   }, []);
@@ -511,7 +709,7 @@ export function useEngine(projectDir: string): { state: EngineUiState; actions: 
           await engineStart(projectDir, mock);
           await send({ type: "start", projectDir, models, thinking });
         } catch (err) {
-          dispatchRef.current({ type: "event", ev: { type: "error", message: (err as Error).message } });
+          dispatch({ type: "event", ev: { type: "error", message: (err as Error).message } });
         }
       },
       [send],
@@ -534,7 +732,7 @@ export function useEngine(projectDir: string): { state: EngineUiState; actions: 
           await engineStart(projectDir, mock);
           await send({ type: "plan", projectDir, prompt, models, thinking, history });
         } catch (err) {
-          dispatchRef.current({ type: "event", ev: { type: "error", message: (err as Error).message } });
+          dispatch({ type: "event", ev: { type: "error", message: (err as Error).message } });
         }
       },
       [send],
@@ -548,7 +746,7 @@ export function useEngine(projectDir: string): { state: EngineUiState; actions: 
           await engineStart(projectDir, mock);
           await send({ type: "graph", projectDir });
         } catch (err) {
-          dispatchRef.current({ type: "event", ev: { type: "error", message: (err as Error).message } });
+          dispatch({ type: "event", ev: { type: "error", message: (err as Error).message } });
         }
       },
       [send],
@@ -561,15 +759,15 @@ export function useEngine(projectDir: string): { state: EngineUiState; actions: 
           await engineStop().catch(() => undefined);
           await engineStart(projectDir, mock);
         } catch (err) {
-          dispatchRef.current({ type: "event", ev: { type: "error", message: (err as Error).message } });
+          dispatch({ type: "event", ev: { type: "error", message: (err as Error).message } });
         }
       },
       [],
     ),
     reset: useCallback(() => {
-      dispatchRef.current({ type: "reset" });
+      dispatch({ type: "reset" });
     }, []),
   };
 
-  return { state, actions, notTauri };
+  return { actions, notTauri };
 }

@@ -1,4 +1,5 @@
-import type { EngineUiState, EngineActions } from "../hooks/useEngine";
+import { useCallback } from "react";
+import { useEngineState, type EngineActions } from "../hooks/useEngine";
 import type { ProjectDocs } from "../hooks/useProjectDocs";
 import { ArrowLeft, CheckCircle2, GitGraph, TriangleAlert } from "lucide-react";
 import { LoopTerminal } from "./v5/LoopTerminal";
@@ -10,15 +11,15 @@ import { aggregateTelemetry } from "../lib/telemetry";
 /**
  * Painel do Loop v5: loop-top (arts + pipeline) + work (terminal | inspector).
  * `docs` vem do App (fonte única) para o inspector refletir o andamento do loop.
+ * O estado do engine é assinado direto do store (2.2.4): o painel re-renderiza
+ * a cada mudança porque exibe o terminal em tempo real — as views inativas não.
  * Quando `completed` (todas as fases do PLAN.md concluídas), mostra a CTA de
  * voltar para o Chat da Thread (como o `.done-cta` do protótipo v5).
  */
 export function EnginePanel({
-  state,
   notTauri,
   docs,
   planProgress = 0,
-  completed = false,
   hasPlan,
   planComplete,
   projectDir,
@@ -29,11 +30,9 @@ export function EnginePanel({
   onRegenerateGraph,
   onBackToChat,
 }: {
-  state: EngineUiState;
   notTauri: boolean;
   docs: ProjectDocs;
   planProgress?: number;
-  completed?: boolean;
   hasPlan: boolean;
   planComplete: boolean;
   /** Path do workspace aberto (sessão) — usado no gatilho do grafo antes do engine conectar. */
@@ -46,7 +45,12 @@ export function EnginePanel({
   onRegenerateGraph?: () => void;
   onBackToChat?: () => void;
 }) {
+  const state = useEngineState();
   const crisisActive = state.status === "waiting" && state.stage === "crisis";
+
+  // Callback estável (memo do LoopTerminal): o foco no inspector é no-op nesta
+  // versão (o inspector é somente leitura e já fica ao lado do terminal).
+  const focusInspector = useCallback(() => {}, []);
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -58,7 +62,7 @@ export function EnginePanel({
         </div>
       )}
 
-      {completed && (
+      {state.completed && (
         <div className="flex items-center justify-between gap-3 border-b border-emerald-900/60 bg-emerald-950/30 px-3 py-2 text-xs text-emerald-300">
           <span className="inline-flex items-center gap-1.5 font-medium">
             <CheckCircle2 size={14} aria-hidden /> Planos concluídos — todas as fases do PLAN.md foram entregues.
@@ -118,7 +122,7 @@ export function EnginePanel({
             crisisActive={crisisActive}
             onCrisisAccept={actions?.crisisAccept}
             onCrisisRevert={actions?.crisisRevert}
-            onFocusInspector={() => {}}
+            onFocusInspector={focusInspector}
           />
         </div>
         <DocInspectorPane docs={docs} />

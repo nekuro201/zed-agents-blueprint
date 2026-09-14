@@ -1,5 +1,7 @@
 import { cn } from "../../lib/cn";
 import { Clock, FolderTree, Settings } from "lucide-react";
+import { useEngineSelector } from "../../hooks/useEngine";
+import { MemoryChip } from "./MemoryChip";
 
 export type MotorState = "idle" | "on" | "run";
 
@@ -17,6 +19,9 @@ const LABEL: Record<MotorState, string> = {
 
 /**
  * Barra de status inferior (v5 → `.statusbar`). Presentacional.
+ * Duas exceções assinadas direto (2.2.4/2.2.5): o `elapsed` (cronômetro do loop,
+ * muda 1×/seg) e o `MemoryChip` (RSS dos processos, poll de 3s) — se viessem por
+ * prop do App, re-renderizariam a árvore inteira a cada tick/poll.
  * No v7 ganha, à direita, o toggle do Explorer e o botão de Configurações —
  * que saíram da rail — ambos opcionais (só renderizam com o callback fornecido).
  */
@@ -26,7 +31,6 @@ export function StatusBar({
   fase,
   tokens,
   version,
-  elapsed,
   onToggleExplorer,
   explorerOpen = false,
   onOpenSettings,
@@ -36,11 +40,11 @@ export function StatusBar({
   fase: string;
   tokens: string;
   version: string;
-  elapsed?: string;
   onToggleExplorer?: () => void;
   explorerOpen?: boolean;
   onOpenSettings?: () => void;
 }) {
+  const elapsed = useEngineSelector((s) => s.elapsed);
   return (
     <footer className="flex select-none items-center gap-3 border-t border-edge bg-panel px-3.5 py-1.5 text-[11px] text-zinc-500">
       <span className="flex items-center gap-1.5">
@@ -51,12 +55,14 @@ export function StatusBar({
       <span className="font-mono">{branch}</span>
       <span className="h-3 w-px bg-edge" />
       <span className="truncate">{fase}</span>
-      {elapsed && (
+      {elapsed > 0 && (
         <span className="inline-flex items-center gap-1 font-mono text-amber-400/80">
-          <Clock size={11} aria-hidden /> {elapsed}
+          <Clock size={11} aria-hidden /> {elapsed}s
         </span>
       )}
       <span className="flex-1" />
+      <MemoryChip />
+      <span className="h-3 w-px bg-edge" />
       <span className="font-mono">{tokens}</span>
       <span className="h-3 w-px bg-edge" />
       <span className="font-mono">Pi · {version}</span>

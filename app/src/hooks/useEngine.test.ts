@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { reducer, initialState, loadUsageTotals, saveUsageTotals } from "./useEngine";
+import { reducer, initialState, loadUsageTotals, saveUsageTotals, MAX_AGENT_TEXT, MAX_AGENT_TOOLS } from "./useEngine";
 import type { EngineEvent } from "../lib/protocol";
 
 type S = ReturnType<typeof reducer>;
@@ -134,6 +134,52 @@ describe("reducer E3 — status do grafo", () => {
     s = apply(s, { type: "graph-error", message: "Falha ao gerar o grafo: not-installed." });
     expect(s.graphStatus).toBe("empty");
     expect(s.graphError).toBe("Falha ao gerar o grafo: not-installed.");
+  });
+});
+
+describe("reducer 2.2.4 — cap de conteúdo dos cards de agente", () => {
+  it("texto do card é truncado no teto, mantendo a cauda e marcando capped", () => {
+    let s = apply(initialState, { type: "status", status: "running" });
+    s = apply(s, { type: "agent-start", role: "coder", model: "m" });
+    s = apply(s, { type: "token", role: "coder", delta: "x".repeat(MAX_AGENT_TEXT + 500) });
+    const card = s.timeline.find((it) => it.kind === "agent");
+    expect(card).toMatchObject({ kind: "agent", capped: true });
+    if (card?.kind === "agent") {
+      expect(card.text.length).toBe(MAX_AGENT_TEXT);
+      expect(card.text).toBe("x".repeat(MAX_AGENT_TEXT));
+    }
+  });
+
+  it("thinking do card é truncado no teto, mantendo a cauda e marcando capped", () => {
+    let s = apply(initialState, { type: "status", status: "running" });
+    s = apply(s, { type: "agent-start", role: "techlead", model: "m" });
+    s = apply(s, { type: "thinking", role: "techlead", delta: "y".repeat(MAX_AGENT_TEXT + 100) });
+    const card = s.timeline.find((it) => it.kind === "agent");
+    expect(card).toMatchObject({ kind: "agent", capped: true });
+    if (card?.kind === "agent") expect(card.thinking.length).toBe(MAX_AGENT_TEXT);
+  });
+
+  it("não marca capped enquanto o conteúdo fica abaixo do teto", () => {
+    let s = apply(initialState, { type: "status", status: "running" });
+    s = apply(s, { type: "agent-start", role: "coder", model: "m" });
+    s = apply(s, { type: "token", role: "coder", delta: "abc" });
+    const card = s.timeline.find((it) => it.kind === "agent");
+    expect(card).toMatchObject({ kind: "agent", capped: false });
+  });
+
+  it("tools são limitadas ao teto, descartando a mais antiga", () => {
+    let s = apply(initialState, { type: "status", status: "running" });
+    s = apply(s, { type: "agent-start", role: "coder", model: "m" });
+    for (let i = 0; i < MAX_AGENT_TOOLS + 25; i++) {
+      s = apply(s, { type: "tool-call", role: "coder", tool: "edit", args: `f${i}` });
+    }
+    const card = s.timeline.find((it) => it.kind === "agent");
+    if (card?.kind === "agent") {
+      expect(card.tools.length).toBe(MAX_AGENT_TOOLS);
+      expect(card.tools[0]?.args).toBe(`f${25}`);
+      expect(card.tools[card.tools.length - 1]?.args).toBe(`f${MAX_AGENT_TOOLS + 24}`);
+      expect(card.capped).toBe(true);
+    }
   });
 });
 

@@ -204,8 +204,15 @@ app/
 6. **`AGENTS.md` do projeto-alvo é injetado** no prompt dos agentes via `skills.ts`
    (fonte da verdade arquitetural do projeto sendo automatizado).
 7. **Não adicione arquitetura complexa** enquanto for protótipo (sem MVVM, sem
-   stores globais, sem barrel files — regras uso `components/` + `hooks/` simples).
+   barrel files — regras uso `components/` + `hooks/` simples).
    Quando evoluir, registrar a mudança aqui.
+   - **Evolução registrada (2.2.4/perf):** o `useEngine` passou a usar um **store
+     externo com `useSyncExternalStore`** (singleton do app em `src/hooks/useEngine.ts`)
+     — a única exceção a “stores globais”, para isolar o estado de streaming e
+     impedir que views inativas re-renderizem a cada token. Consumidores usam
+     `useEngineState()` (painel do loop, tempo real), `useEngineSelector(sel)`
+     (slices de baixa frequência) ou `usePlannerCard()` (card do Planejador
+     cacheado por referência). Sem dependência nova.
 8. **Inspector de docs é somente leitura** — a UI nunca altera `PLAN.md`/`TODO_BATCH.md`
    (quem edita é o engine). Config de modelos usa **campos manuais com seletor
    de busca opcional** (E10) — o campo de texto livre permanece como fallback.

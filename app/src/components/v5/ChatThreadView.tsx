@@ -8,17 +8,9 @@ import { useStickToBottom } from "../../hooks/useStickToBottom";
 import { parseDoc, planProgress, type DocRow } from "../../lib/docs";
 import type { ProjectDocs } from "../../hooks/useProjectDocs";
 import type { ChatMessage } from "../../lib/conversations";
+import type { PlannerCard } from "../../hooks/useEngine";
 
-/** Card do Planejador (vem do reducer/timeline) — streaming ou já concluído. */
-export interface PlannerCard {
-  thinking: string;
-  text: string;
-  model?: string;
-  fallback?: boolean;
-  costReason?: string;
-  ended: boolean;
-  stats?: { tokens: { total: number }; cost: number };
-}
+export type { PlannerCard };
 
 const SUMMARY_FALLBACK = "PLAN.md gerado/atualizado. Inicie o loop no orquestrador.";
 

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { memo, useEffect } from "react";
 import { Brain, Clock, CornerDownRight, Eye, FlaskConical, Info, Package, Scale, TriangleAlert, XCircle } from "lucide-react";
 import { cn } from "../../lib/cn";
 import { useStickToBottom } from "../../hooks/useStickToBottom";
@@ -61,6 +61,12 @@ function AgentBlock({ item }: { item: Extract<TimelineItem, { kind: "agent" }> }
         </summary>
 
         <div className="border-t border-edge/60 px-2.5 py-1.5">
+          {item.capped && (
+            <div className="mb-1.5 flex items-center gap-1.5 rounded bg-zinc-900/60 px-2 py-1 text-[10px] text-zinc-500">
+              <TriangleAlert size={10} className="shrink-0 text-amber-500/70" aria-hidden />
+              Conteúdo truncado por limite de memória (mostrando o final).
+            </div>
+          )}
           {item.thinking.trim() && (
             <div className="mb-1.5 flex gap-1.5 whitespace-pre-wrap text-[11px] leading-relaxed text-amber-200/70">
               <Brain size={12} className="mt-0.5 shrink-0 text-amber-500/70" aria-hidden />
@@ -204,7 +210,12 @@ interface CrisisActions {
   onFocusInspector?: () => void;
 }
 
-function TerminalLine({ item, crisisActive = false, onCrisisAccept, onCrisisRevert, onFocusInspector }: { item: TimelineItem } & CrisisActions) {
+/**
+ * Linha do terminal memoizada (2.2.4): a comparação por referência do `item`
+ * faz com que um evento de streaming re-renderize SÓ o card afetado — os demais
+ * (até 400) pulam o re-render — em vez de refazer todo o DOM a cada token.
+ */
+const TerminalLine = memo(function TerminalLine({ item, crisisActive = false, onCrisisAccept, onCrisisRevert, onFocusInspector }: { item: TimelineItem } & CrisisActions) {
   switch (item.kind) {
     case "phase":
       return (
@@ -284,7 +295,7 @@ function TerminalLine({ item, crisisActive = false, onCrisisAccept, onCrisisReve
     default:
       return null;
   }
-}
+});
 
 interface LoopTerminalProps {
   items: TimelineItem[];

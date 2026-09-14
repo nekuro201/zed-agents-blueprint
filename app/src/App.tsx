@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FolderGit2 } from "lucide-react";
-import { useEngine } from "./hooks/useEngine";
+import { useEngine, useEngineSelector, usePlannerCard } from "./hooks/useEngine";
 import { useProjectDocs } from "./hooks/useProjectDocs";
 import { useActiveView } from "./hooks/useActiveView";
-import type { PlannerCard } from "./components/v5/ChatThreadView";
 import { Shell } from "./components/v5/Shell";
 import { EnginePanel } from "./components/EnginePanel";
 import { ChatThreadView } from "./components/v5/ChatThreadView";
@@ -29,7 +28,24 @@ import type { ExplorerGroup } from "./components/v5/ExplorerTree";
 
 export default function App() {
   const [session, setSession] = useState<WorkspaceSession | null>(null);
-  const { state, actions, notTauri } = useEngine(session?.path ?? "");
+  const { actions, notTauri } = useEngine(session?.path ?? "");
+  // Assinatura seletiva do store (2.2.4): o App só assina campos de baixa
+  // frequência + o card do Planejador — os flushes de streaming (5/seg) não
+  // re-renderizam o App nem as views inativas durante um loop.
+  const plannerCard = usePlannerCard();
+  const planning = useEngineSelector((s) => s.planning);
+  const status = useEngineSelector((s) => s.status);
+  const connected = useEngineSelector((s) => s.connected);
+  const running = useEngineSelector((s) => s.running);
+  const tokens = useEngineSelector((s) => s.tokens);
+  const cost = useEngineSelector((s) => s.cost);
+  const phase = useEngineSelector((s) => s.phase);
+  const version = useEngineSelector((s) => s.version);
+  const error = useEngineSelector((s) => s.error);
+  const errorFase = useEngineSelector((s) => s.errorFase);
+  const errorRole = useEngineSelector((s) => s.errorRole);
+  const graphStatus = useEngineSelector((s) => s.graphStatus);
+  const graphError = useEngineSelector((s) => s.graphError);
   const { view, setView } = useActiveView();
   const [recents, setRecents] = useState<WorkspaceSession[]>(() => loadRecents());
   const [prefs, setPrefs] = useState<EnginePrefs>(() => loadEnginePrefs());
@@ -57,17 +73,6 @@ export default function App() {
   } = useConversations(projectDir);
   const activeConversation = conversations.find((c) => c.id === activeId) ?? null;
 
-  /** Card do Planejador (último da timeline) — streaming ou já concluído. */
-  const plannerCard: PlannerCard | null = useMemo(() => {
-    for (let i = state.timeline.length - 1; i >= 0; i--) {
-      const it = state.timeline[i];
-      if (it?.kind === "agent" && it.role === "planejador") {
-        return { thinking: it.thinking, text: it.text, model: it.model, fallback: it.fallback, costReason: it.costReason, ended: it.ended, stats: it.stats };
-      }
-    }
-    return null;
-  }, [state.timeline]);
-
   // Persiste o card do Planejador na conversa ativa quando a geração termina.
   const prevPlannerEnded = useRef<boolean | null>(null);
   useEffect(() => {
@@ -91,9 +96,9 @@ export default function App() {
   useEffect(() => {
     // Recarrega os docs do projeto quando o loop avança (fase/status/erro) e
     // após a geração do plano — senão PLAN.md/TODO_BATCH.md/error.log ficam stale.
-    if (state.planning) return;
+    if (planning) return;
     reload();
-  }, [state.planning, state.phase, state.status, state.error, reload]);
+  }, [planning, phase, status, error, reload]);
 
   const reloadBranches = useCallback(async (dir: string) => {
     try {
@@ -186,7 +191,7 @@ export default function App() {
   };
 
   const motor: MotorState =
-    state.status === "running" || state.status === "starting" ? "run" : state.connected ? "on" : "idle";
+    status === "running" || status === "starting" ? "run" : connected ? "on" : "idle";
 
   // PLAN.md 100% concluído (todas as fases [x]) → trava o Iniciar Loop e mostra
   // a CTA de voltar ao chat no Loop.
@@ -196,8 +201,8 @@ export default function App() {
 
   // Ao encerrar o loop (qualquer motivo), limpa o estado transitório de aborto.
   useEffect(() => {
-    if (!state.running) setAborting(false);
-  }, [state.running]);
+    if (!running) setAborting(false);
+  }, [running]);
 
   if (!session) {
     return (
@@ -222,18 +227,17 @@ export default function App() {
   }
 
   /** E4 — quando há erro, mostra o contexto (fase/agente) na statusbar. */
-  const statusFase = state.error
-    ? [state.errorFase, state.errorRole].filter(Boolean).join(" · ") || state.phase?.fase || session.path
-    : (state.phase?.fase ?? session.path);
+  const statusFase = error
+    ? [errorFase, errorRole].filter(Boolean).join(" · ") || phase?.fase || session.path
+    : (phase?.fase ?? session.path);
 
   const statusBar = (
     <StatusBar
       motor={motor}
       branch={session.name}
       fase={statusFase}
-      tokens={`${formatTokens(state.tokens.total)} · ${formatCost(state.cost)}`}
-      elapsed={`${state.elapsed}s`}
-      version={`v${state.version ?? "0.1.0"}`}
+      tokens={`${formatTokens(tokens.total)} · ${formatCost(cost)}`}
+      version={`v${version ?? "0.1.0"}`}
       onToggleExplorer={() => setExplorerOpen((open) => !open)}
       explorerOpen={explorerOpen}
       onOpenSettings={() => setModelSettingsOpen(true)}
@@ -247,8 +251,8 @@ export default function App() {
   const graphView = (
     <GraphViewer
       projectDir={projectDir}
-      graphStatus={state.graphStatus}
-      graphError={state.graphError}
+      graphStatus={graphStatus}
+      graphError={graphError}
       onGenerate={regenerateGraph}
     />
   );
@@ -261,7 +265,7 @@ export default function App() {
         workspaceName={session.name}
         onCloseWorkspace={() => {
           // Se há execução em andamento, pede confirmação antes de abortar.
-          if (state.running || state.planning) {
+          if (running || planning) {
             setConfirmExitOpen(true);
             return;
           }
@@ -288,14 +292,12 @@ export default function App() {
         explorerHasGit={hasGit}
         explorerOpen={explorerOpen}
         onToggleExplorer={() => setExplorerOpen((open) => !open)}
-        tokensLabel={formatTokens(state.tokens.total)}
+        tokensLabel={formatTokens(tokens.total)}
         workspaceView={
           <EnginePanel
-            state={state}
             notTauri={notTauri}
             docs={docs}
             planProgress={planStat.pct}
-            completed={state.completed}
             hasPlan={Boolean(docs.plan)}
             planComplete={planComplete}
             projectDir={projectDir}
@@ -319,7 +321,7 @@ export default function App() {
           <ChatThreadView
             projectDir={projectDir}
             mock={mock}
-            planning={state.planning}
+            planning={planning}
             docs={docs}
             plannerCard={plannerCard}
             messages={messages}
@@ -355,9 +357,8 @@ export default function App() {
               motor={motor}
               branch={session.name}
               fase={gitError}
-              tokens={`${formatTokens(state.tokens.total)} · ${formatCost(state.cost)}`}
-              elapsed={`${state.elapsed}s`}
-              version={`v${state.version ?? "0.1.0"}`}
+              tokens={`${formatTokens(tokens.total)} · ${formatCost(cost)}`}
+              version={`v${version ?? "0.1.0"}`}
               onToggleExplorer={() => setExplorerOpen((open) => !open)}
               explorerOpen={explorerOpen}
               onOpenSettings={() => setModelSettingsOpen(true)}

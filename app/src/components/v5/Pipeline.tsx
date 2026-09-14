@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "../../lib/cn";
 
@@ -32,7 +33,7 @@ const STATUS_AVATAR: Record<AgentStatus, string> = {
   idle: "border-edge text-muted",
 };
 
-export function Pipeline({ agents }: { agents: PipelineAgent[] }) {
+export const Pipeline = memo(function Pipeline({ agents }: { agents: PipelineAgent[] }) {
   return (
     <div className="relative flex items-start justify-center gap-7 px-4 py-3.5">
       {/* linha de conexão atrás dos avatares (v5 .pipeline::before) */}
@@ -59,4 +60,20 @@ export function Pipeline({ agents }: { agents: PipelineAgent[] }) {
       ))}
     </div>
   );
+}, pipelineAgentsEqual);
+
+/** Comparador por conteúdo (2.2.4): deltas de streaming não re-renderizam o
+ * pipeline — só mudanças de status/modelo (agent-start/agent-end) disparam. */
+function pipelineAgentsEqual(prev: { agents: PipelineAgent[] }, next: { agents: PipelineAgent[] }): boolean {
+  if (prev.agents === next.agents) return true;
+  const a = prev.agents;
+  const b = next.agents;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i];
+    const y = b[i];
+    if (x === y) continue;
+    if (x.id !== y.id || x.label !== y.label || x.status !== y.status || x.model !== y.model || x.icon !== y.icon) return false;
+  }
+  return true;
 }
